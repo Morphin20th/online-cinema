@@ -1,0 +1,21 @@
+[project]
+name = "online-cinema"
+version = "0.1.0"
+description = "Online cinema poetry configuration file"
+authors = [
+    {name = "Maksym Bondarevskyi",email = "bondarevskiymaks@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi (>=0.115.8,<0.116.0)",
+    "sqlalchemy (>=2.0.38,<3.0.0)",
+    "uvicorn (>=0.34.0,<0.35.0)",
+    "flake8 (>=7.1.1,<8.0.0)",
+    "black (>=25.1.0,<26.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
