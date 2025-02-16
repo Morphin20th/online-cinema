@@ -63,6 +63,19 @@ class UserModel(Base):
     )
     group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
 
+    profile: Mapped["UserProfileModel"] = relationship(
+        "UserProfile", back_populates="users", cascade="all, delete-orphan"
+    )
+    activation_token: Mapped["ActivationTokenModel"] = relationship(
+        "ActivationTokenModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    password_reset_token: Mapped["PasswordResetTokenModel"] = relationship(
+        "PasswordResetTokenModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    refresh_tokens: Mapped[List["RefreshTokenModel"]] = relationship(
+        "RefreshTokenModel", back_populates="user", cascade="all"
+    )
+
     def __repr__(self):
         return (
             f"<UserModel(id={self.id}, email={self.email}, is_active={self.is_active})>"
@@ -134,6 +147,9 @@ class RefreshTokenModel(TokenBaseModel):
     __tablename__ = "refresh_tokens"
 
     user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_token")
+    token: Mapped[str] = mapped_column(
+        String(512), unique=True, nullable=False, default=generate_secure_token
+    )
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
