@@ -1,11 +1,21 @@
 import enum
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import List
 
-from sqlalchemy import Enum, String, DateTime, func, ForeignKey, Date, Text, Annotated
+from sqlalchemy import (
+    Enum,
+    String,
+    DateTime,
+    func,
+    ForeignKey,
+    Date,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from base import Base
+from base import Base, intpk
+from database.utils import generate_secure_token
 
 
 class UserGroupEnum(enum.Enum):
@@ -17,9 +27,6 @@ class UserGroupEnum(enum.Enum):
 class GenderEnum(enum.Enum):
     MAN = "man"
     WOMAN = "woman"
-
-
-intpk = Annotated[int, mapped_column(primary_key=True, autoincrement=True)]
 
 
 class UserGroupModel(Base):
@@ -83,3 +90,52 @@ class UserProfileModel(Base):
             f"<UserProfileModel(id={self.id}, first_name={self.first_name}, last_name={self.last_name},"
             f"gender={self.gender}, date_of_birth={self.date_of_birth})>"
         )
+
+
+class TokenBaseModel(Base):
+    __abstract__ = True
+
+    id: Mapped[intpk]
+    token: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, default=generate_secure_token
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc) + timedelta(days=1),
+    )
+
+
+class ActivationTokenModel(TokenBaseModel):
+    __tablename__ = "activation_tokens"
+
+    user: Mapped[UserModel] = relationship(UserModel, back_populates="activation_token")
+
+    __table_args__ = (UniqueConstraint("user_id"),)
+
+    def __repr__(self):
+        return f"<ActivationTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
+
+
+class PasswordResetTokenModel(TokenBaseModel):
+    __tablename__ = "password_reset_tokens"
+
+    user: Mapped[UserModel] = relationship(
+        UserModel, back_populates="password_reset_token"
+    )
+
+    __table_args__ = (UniqueConstraint("user_id"),)
+
+    def __repr__(self):
+        return f"<PasswordResetTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
+
+
+class RefreshTokenModel(TokenBaseModel):
+    __tablename__ = "refresh_tokens"
+
+    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_token")
+
+    __table_args__ = (UniqueConstraint("user_id"),)
+
+    def __repr__(self):
+        return f"<RefreshTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
