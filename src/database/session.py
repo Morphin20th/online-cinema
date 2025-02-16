@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SQLITE_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, "database", "cinema.db")}"
+SQLITE_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'database', 'cinema.db')}"
 
 sqlite_engine = create_engine(
     SQLITE_DATABASE_URL, connect_args={"check_same_thread": False}
