@@ -3,6 +3,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
+from database.models.base import Base
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQLITE_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'database', 'cinema.db')}"
 
@@ -21,3 +23,9 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+def reset_sqlite_database():
+    with sqlite_connection.begin():
+        Base.metadata.drop_all(bind=sqlite_connection)
+        Base.metadata.create_all(bind=sqlite_connection)
