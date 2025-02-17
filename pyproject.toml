@@ -19,6 +19,8 @@ uvicorn = "^0.34.0"
 flake8 = "^7.1.1"
 black = "^25.1.0"
 alembic = "^1.14.1"
+pydantic-settings = "^2.7.1"
+psycopg = "^3.2.4"
 
 
 [build-system]
