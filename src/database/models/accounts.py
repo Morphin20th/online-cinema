@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from base import Base, intpk
+from database.models.base import Base
 from database.utils import generate_secure_token
 
 
@@ -32,8 +32,10 @@ class GenderEnum(enum.Enum):
 class UserGroupModel(Base):
     __tablename__ = "user_groups"
 
-    id: Mapped[intpk]
-    name: Mapped[UserGroupEnum] = mapped_column(nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[UserGroupEnum] = mapped_column(
+        Enum(UserGroupEnum), nullable=False, unique=True
+    )
 
     users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="group")
 
@@ -44,7 +46,7 @@ class UserGroupModel(Base):
 class UserModel(Base):
     __tablename__ = "users"
 
-    id: Mapped[intpk]
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
@@ -64,7 +66,7 @@ class UserModel(Base):
     group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
 
     profile: Mapped["UserProfileModel"] = relationship(
-        "UserProfile", back_populates="users", cascade="all, delete-orphan"
+        "UserProfile", back_populates="user", cascade="all, delete-orphan"
     )
     activation_token: Mapped["ActivationTokenModel"] = relationship(
         "ActivationTokenModel", back_populates="user", cascade="all, delete-orphan"
@@ -85,7 +87,7 @@ class UserModel(Base):
 class UserProfileModel(Base):
     __tablename__ = "user_profiles"
 
-    id: Mapped[intpk]
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     first_name: Mapped[str | None] = mapped_column(String(100))
     last_name: Mapped[str | None] = mapped_column(String(100))
     avatar: Mapped[str | None] = mapped_column(String(255))
@@ -108,7 +110,7 @@ class UserProfileModel(Base):
 class TokenBaseModel(Base):
     __abstract__ = True
 
-    id: Mapped[intpk]
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     token: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False, default=generate_secure_token
     )
@@ -116,6 +118,9 @@ class TokenBaseModel(Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
 
