@@ -8,7 +8,7 @@ from pydantic import (
 )
 
 
-class ValidationSchema(BaseModel):
+class EmailPasswordSchema(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=32)
 
@@ -42,5 +42,20 @@ class UserRegistrationResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserRegistrationRequestSchema(ValidationSchema):
+class UserRegistrationRequestSchema(EmailPasswordSchema):
+    pass
+
+
+class TokenRefreshResponseSchema(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class UserLoginResponseSchema(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class UserLoginRequestSchema(EmailPasswordSchema):
     pass

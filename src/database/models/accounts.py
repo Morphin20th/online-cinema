@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models import Base
 from database.utils import generate_secure_token
+from security import hash_password, verify_password
 
 
 class UserGroupEnum(enum.Enum):
@@ -63,8 +64,8 @@ class UserModel(Base):
     group_id: Mapped[int] = mapped_column(
         ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=False
     )
-    group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
 
+    group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
     profile: Mapped["UserProfileModel"] = relationship(
         "UserProfile", back_populates="user", cascade="all, delete-orphan"
     )
@@ -82,6 +83,23 @@ class UserModel(Base):
         return (
             f"<UserModel(id={self.id}, email={self.email}, is_active={self.is_active})>"
         )
+
+    @property
+    def password(self):
+        return "Password is write-only."
+
+    @password.setter
+    def password(self, new_password: str) -> None:
+        self._hashed_password = hash_password(new_password)
+
+    def verify_password(self, new_password: str) -> bool:
+        return verify_password(new_password, self._hashed_password)
+
+    @classmethod
+    def create(cls, email: str, new_password: str, group_id: int) -> "UserModel":
+        user = cls(email=email, group_id=group_id)
+        user.password = new_password
+        return user
 
 
 class UserProfileModel(Base):
@@ -151,12 +169,18 @@ class PasswordResetTokenModel(TokenBaseModel):
 class RefreshTokenModel(TokenBaseModel):
     __tablename__ = "refresh_tokens"
 
-    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_token")
     token: Mapped[str] = mapped_column(
         String(512), unique=True, nullable=False, default=generate_secure_token
     )
+
+    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_token")
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
     def __repr__(self):
         return f"<RefreshTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
+
+    @classmethod
+    def create(cls, user_id, token, days) -> "RefreshTokenModel":
+        expires_at = datetime.now(timezone.utc) + timedelta(days=days)
+        return cls(user_id=user_id, expires_at=expires_at, token=token)
