@@ -21,6 +21,8 @@ black = "^25.1.0"
 alembic = "^1.14.1"
 pydantic-settings = "^2.7.1"
 psycopg = "^3.2.4"
+passlib = "^1.7.4"
+pydantic = {extras = ["email"], version = "^2.11.5"}
 
 
 [build-system]

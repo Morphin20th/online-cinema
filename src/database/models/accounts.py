@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.models.base import Base
+from database.models import Base
 from database.utils import generate_secure_token
 
 
