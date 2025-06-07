@@ -59,3 +59,7 @@ class UserLoginResponseSchema(BaseModel):
 
 class UserLoginRequestSchema(EmailPasswordSchema):
     pass
+
+
+class MessageSchema(BaseModel):
+    message: str

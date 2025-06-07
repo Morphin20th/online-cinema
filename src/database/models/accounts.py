@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import enum
 from datetime import datetime, timezone, date, timedelta
 from typing import List
 
+from pydantic import EmailStr
 from sqlalchemy import (
     Enum,
     String,
@@ -14,14 +17,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.models import Base
+from database.models.base import Base
 from database.utils import generate_secure_token
 from security import hash_password, verify_password
 
 
 class UserGroupEnum(enum.Enum):
     ADMIN = "admin"
-    USER = "User"
+    USER = "user"
     MODERATOR = "moderator"
 
 
@@ -38,7 +41,7 @@ class UserGroupModel(Base):
         Enum(UserGroupEnum), nullable=False, unique=True
     )
 
-    users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="group")
+    users: Mapped[List[UserModel]] = relationship("UserModel", back_populates="group")
 
     def __repr__(self):
         return f"<UserGroupModel(id={self.id}, name={self.name})>"
@@ -58,7 +61,11 @@ class UserModel(Base):
         DateTime(timezone=False), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
     group_id: Mapped[int] = mapped_column(
@@ -67,15 +74,15 @@ class UserModel(Base):
 
     group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
     profile: Mapped["UserProfileModel"] = relationship(
-        "UserProfile", back_populates="user", cascade="all, delete-orphan"
+        "UserProfileModel", back_populates="user", cascade="all, delete-orphan"
     )
-    activation_token: Mapped["ActivationTokenModel"] = relationship(
+    activation_token: Mapped[ActivationTokenModel] = relationship(
         "ActivationTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
-    password_reset_token: Mapped["PasswordResetTokenModel"] = relationship(
+    password_reset_token: Mapped[PasswordResetTokenModel] = relationship(
         "PasswordResetTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
-    refresh_tokens: Mapped[List["RefreshTokenModel"]] = relationship(
+    refresh_tokens: Mapped[List[RefreshTokenModel]] = relationship(
         "RefreshTokenModel", back_populates="user", cascade="all"
     )
 
@@ -96,7 +103,9 @@ class UserModel(Base):
         return verify_password(new_password, self._hashed_password)
 
     @classmethod
-    def create(cls, email: str, new_password: str, group_id: int) -> "UserModel":
+    def create(
+        cls, email: EmailStr, new_password: str, group_id: Mapped[int]
+    ) -> UserModel:
         user = cls(email=email, group_id=group_id)
         user.password = new_password
         return user
@@ -116,7 +125,7 @@ class UserProfileModel(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    user: Mapped[UserModel] = relationship(UserModel, back_populates="profile")
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="profile")
 
     def __repr__(self):
         return (
@@ -173,7 +182,7 @@ class RefreshTokenModel(TokenBaseModel):
         String(512), unique=True, nullable=False, default=generate_secure_token
     )
 
-    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_token")
+    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_tokens")
 
     __table_args__ = (UniqueConstraint("user_id"),)
 

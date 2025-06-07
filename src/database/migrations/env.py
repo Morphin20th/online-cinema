@@ -4,8 +4,8 @@ from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from database import Base
-from database.config import settings
+from database.models.base import Base
+from config import get_settings
 from database.models import accounts  # noqa
 
 config = context.config
@@ -14,7 +14,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
 
 target_metadata = Base.metadata
 
