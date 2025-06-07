@@ -23,6 +23,7 @@ from schemas.accounts import (
     UserLoginResponseSchema,
     UserLoginRequestSchema,
     MessageSchema,
+    ChangePasswordRequestSchema,
 )
 from security.token_manager import JWTManager
 from services import EmailSender
@@ -33,7 +34,7 @@ router = APIRouter()
 ACTIVATION_LINK = "http://127.0.0.1:8001/accounts/activate/"
 
 
-def get_user_by_email(email, db: Session = Depends(get_db)) -> Optional[UserModel]:
+def get_user_by_email(email, db: Session) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email == email).first()
 
 
@@ -167,3 +168,39 @@ def login_user(
     return UserLoginResponseSchema(
         access_token=jwt_access_token, refresh_token=jwt_refresh_token
     )
+
+
+@router.post("/change-password/", response_model=MessageSchema)
+def change_password(
+    user_data: ChangePasswordRequestSchema,
+    db: Session = Depends(get_db),
+) -> MessageSchema:
+    user = get_user_by_email(user_data.email, db)
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Error occured."
+        )
+
+    if not user.verify_password(user_data.old_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+    if user_data.old_password == user_data.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="New password can not be same as the old one.",
+        )
+
+    try:
+        user.password = user_data.new_password
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
+        )
+    return MessageSchema(message="Password has been changed successfully!")

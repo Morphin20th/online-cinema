@@ -7,6 +7,8 @@ from pydantic import (
     Field,
 )
 
+from utils import password_validation
+
 
 class EmailPasswordSchema(BaseModel):
     email: EmailStr
@@ -21,18 +23,7 @@ class EmailPasswordSchema(BaseModel):
     @field_validator("password")
     @classmethod
     def strong_password(cls, value: str) -> str:
-        if (
-            not any(c.islower() for c in value)
-            or not any(c.isupper() for c in value)
-            or not any(c.isdigit() for c in value)
-            or not any(c in "@$!%*?&" for c in value)
-        ):
-            raise ValueError(
-                "Password must contain 8-32 characters, "
-                "at least one uppercase and lowercase letter, "
-                "a number and a special character"
-            )
-        return value
+        return password_validation(value)
 
 
 class UserRegistrationResponseSchema(BaseModel):
@@ -63,3 +54,14 @@ class UserLoginRequestSchema(EmailPasswordSchema):
 
 class MessageSchema(BaseModel):
     message: str
+
+
+class ChangePasswordRequestSchema(BaseModel):
+    email: EmailStr
+    old_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_password(cls, value: str) -> str:
+        return password_validation(value)
