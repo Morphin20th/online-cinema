@@ -28,6 +28,7 @@ from schemas.accounts import (
     ChangePasswordRequestSchema,
     PasswordResetRequestSchema,
     PasswordResetCompleteRequestSchema,
+    LogoutRequestSchema,
 )
 from security.token_manager import JWTManager
 from services import EmailSender
@@ -169,6 +170,32 @@ def login_user(
         access_token=jwt_access_token, refresh_token=jwt_refresh_token
     )
 
+
+@router.post("/logout/", response_model=MessageSchema)
+def logout_user(
+    user_data: LogoutRequestSchema, db: Session = Depends(get_db)
+) -> MessageSchema:
+    token_record = (
+        db.query(RefreshTokenModel).filter_by(token=user_data.refresh_token).first()
+    )
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
+        )
+
+    try:
+        db.delete(token_record)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to logout. Try again.",
+        )
+
+    return MessageSchema(message="Logged out successfully.")
 
 @router.post("/change-password/", response_model=MessageSchema)
 def change_password(

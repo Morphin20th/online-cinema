@@ -82,3 +82,7 @@ class PasswordResetCompleteRequestSchema(EmailPasswordSchema):
 class ActivateRequestSchema(BaseModel):
     email: EmailStr
     token: str
+
+
+class LogoutRequestSchema(BaseModel):
+    refresh_token: str
