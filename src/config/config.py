@@ -17,6 +17,7 @@ class BaseAppSettings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     LOGIN_DAYS: int = 7
+    ACTIVATION_TOKEN_LIFE: int = 1
 
     EMAIL_HOST: str = os.getenv("EMAIL_HOST", "localhost")
     EMAIL_PORT: int = os.getenv("EMAIL_PORT", 1111)

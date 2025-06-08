@@ -161,6 +161,11 @@ class ActivationTokenModel(TokenBaseModel):
     def __repr__(self):
         return f"<ActivationTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
+    @classmethod
+    def create(cls, user_id, token, days) -> ActivationTokenModel:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=days)
+        return cls(user_id=user_id, expires_at=expires_at, token=token)
+
 
 class PasswordResetTokenModel(TokenBaseModel):
     __tablename__ = "password_reset_tokens"

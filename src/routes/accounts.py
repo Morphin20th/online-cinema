@@ -19,6 +19,7 @@ from database.models.accounts import (
     RefreshTokenModel,
 )
 from database.session import get_db
+from database.utils import generate_secure_token
 from schemas.accounts import (
     UserRegistrationResponseSchema,
     UserRegistrationRequestSchema,
@@ -46,6 +47,7 @@ def create_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
+    settings: BaseAppSettings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
     existing_user = db.query(UserModel).filter_by(email=user_data.email).first()
     if existing_user:
@@ -65,7 +67,11 @@ def create_user(
         db.add(new_user)
         db.flush()
 
-        activation_token = ActivationTokenModel(user=new_user)
+        activation_token = ActivationTokenModel.create(
+            user_id=new_user.id,
+            token=generate_secure_token,
+            days=settings.ACTIVATION_TOKEN_LIFE,
+        )
         db.add(activation_token)
         new_user.activation_token = activation_token
 
@@ -196,6 +202,7 @@ def logout_user(
         )
 
     return MessageSchema(message="Logged out successfully.")
+
 
 @router.post("/change-password/", response_model=MessageSchema)
 def change_password(
