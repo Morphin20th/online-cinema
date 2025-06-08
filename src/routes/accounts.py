@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import EmailStr
@@ -9,6 +10,7 @@ from starlette import status
 
 from config import get_jwt_auth_manager, get_settings, get_email_sender
 from config.config import BaseAppSettings
+from database import PasswordResetTokenModel
 from database.models.accounts import (
     UserModel,
     UserGroupModel,
@@ -24,14 +26,13 @@ from schemas.accounts import (
     UserLoginRequestSchema,
     MessageSchema,
     ChangePasswordRequestSchema,
+    PasswordResetRequestSchema,
+    PasswordResetCompleteRequestSchema,
 )
 from security.token_manager import JWTManager
 from services import EmailSender
 
 router = APIRouter()
-
-
-ACTIVATION_LINK = "http://127.0.0.1:8001/accounts/activate/"
 
 
 def get_user_by_email(email, db: Session) -> Optional[UserModel]:
@@ -83,7 +84,6 @@ def create_user(
         background_tasks.add_task(
             email_sender.send_activation_email,
             user_data.email,
-            ACTIVATION_LINK,
             token_value,
         )
     return UserRegistrationResponseSchema.model_validate(new_user)
@@ -179,7 +179,7 @@ def change_password(
 
     if not user or not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Error occured."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Error occurred."
         )
 
     if not user.verify_password(user_data.old_password):
@@ -204,3 +204,86 @@ def change_password(
             detail="Something went wrong.",
         )
     return MessageSchema(message="Password has been changed successfully!")
+
+
+@router.post("/reset-password/request/", response_model=MessageSchema)
+def reset_password_request(
+    user_data: PasswordResetRequestSchema,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    email_sender: EmailSender = Depends(get_email_sender),
+) -> MessageSchema:
+    user = get_user_by_email(user_data.email, db)
+
+    if not user or not user.is_active:
+        return MessageSchema(
+            message="If you have an account, you will receive an email with instructions."
+        )
+
+    try:
+        db.query(PasswordResetTokenModel).filter_by(user_id=user.id).delete()
+        reset_token = PasswordResetTokenModel(user_id=cast(int, user.id))
+        db.add(reset_token)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
+        )
+    else:
+        background_tasks.add_task(
+            email_sender.send_password_reset_email, user_data.email, reset_token.token
+        )
+
+    return MessageSchema(
+        message="If you have an account, you will receive an email with instructions."
+    )
+
+
+@router.post("/accounts/reset-password/complete/", response_model=MessageSchema)
+def reset_password(
+    user_data: PasswordResetCompleteRequestSchema,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    email_sender: EmailSender = Depends(get_email_sender),
+) -> MessageSchema:
+    user = get_user_by_email(user_data.email, db)
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or token."
+        )
+
+    token_record = db.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+
+    expires_at = cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc)
+
+    if (
+        not token_record
+        or token_record.token != user_data.token
+        or expires_at < datetime.now(timezone.utc)
+    ):
+        if token_record:
+            db.delete(token_record)
+            db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or token."
+        )
+
+    try:
+        user.password = user_data.password
+        db.delete(token_record)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
+        )
+    else:
+        background_tasks.add_task(
+            email_sender.send_password_reset_complete_email, user_data.email
+        )
+
+    return MessageSchema(message="Your password has been successfully changed!")

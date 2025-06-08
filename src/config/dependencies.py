@@ -26,4 +26,6 @@ def get_email_sender(settings: BaseAppSettings = Depends(get_settings)) -> Email
         email_port=settings.EMAIL_PORT,
         email_host_user=settings.EMAIL_HOST_USER,
         from_email=settings.FROM_EMAIL,
+        app_url=settings.APP_URL,
+        project_root=settings.PROJECT_ROOT,
     )

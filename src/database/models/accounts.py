@@ -190,6 +190,6 @@ class RefreshTokenModel(TokenBaseModel):
         return f"<RefreshTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
     @classmethod
-    def create(cls, user_id, token, days) -> "RefreshTokenModel":
+    def create(cls, user_id, token, days) -> RefreshTokenModel:
         expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         return cls(user_id=user_id, expires_at=expires_at, token=token)

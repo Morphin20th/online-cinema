@@ -1,0 +1,12 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<p>Hello,</p>
+<p>Welcome! Please activate your account by clicking the button below:</p>
+<p style="text-align: center;">
+  <a href="{{ activation_api_url }}?email={{ email }}&token={{ token }}"
+     style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+    Activate Account
+  </a>
+</p>
+<p>If you did not sign up, simply ignore this email.</p>
+{% endblock %}

@@ -65,3 +65,20 @@ class ChangePasswordRequestSchema(BaseModel):
     @classmethod
     def strong_password(cls, value: str) -> str:
         return password_validation(value)
+
+
+class PasswordResetRequestSchema(BaseModel):
+    email: EmailStr
+
+    @field_serializer("email")
+    def serialize_email(self, value: str) -> str:
+        return value.lower()
+
+
+class PasswordResetCompleteRequestSchema(EmailPasswordSchema):
+    token: str
+
+
+class ActivateRequestSchema(BaseModel):
+    email: EmailStr
+    token: str
