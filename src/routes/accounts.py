@@ -30,6 +30,7 @@ from schemas.accounts import (
     PasswordResetRequestSchema,
     PasswordResetCompleteRequestSchema,
     LogoutRequestSchema,
+    EmailRequestSchema,
 )
 from security.token_manager import JWTManager
 from services import EmailSender
@@ -69,7 +70,7 @@ def create_user(
 
         activation_token = ActivationTokenModel.create(
             user_id=new_user.id,
-            token=generate_secure_token,
+            token=generate_secure_token(),
             days=settings.ACTIVATION_TOKEN_LIFE,
         )
         db.add(activation_token)
@@ -94,6 +95,60 @@ def create_user(
             token_value,
         )
     return UserRegistrationResponseSchema.model_validate(new_user)
+
+
+@router.post("/resend-activation/", response_model=MessageSchema)
+def resend_activation(
+    user_data: EmailRequestSchema,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    email_sender: EmailSender = Depends(get_email_sender),
+    settings: BaseAppSettings = Depends(get_settings),
+) -> MessageSchema:
+    existing_user = get_user_by_email(user_data.email, db)
+
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
+
+    if existing_user.is_active:
+        return MessageSchema(message="User is already activated.")
+
+    existing_token = existing_user.activation_token
+
+    if existing_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Activation token still valid.",
+        )
+
+    try:
+        activation_token = ActivationTokenModel.create(
+            user_id=existing_user.id,
+            token=generate_secure_token(),
+            days=settings.ACTIVATION_TOKEN_LIFE,
+        )
+        db.add(activation_token)
+        existing_user.activation_token = activation_token
+
+        db.commit()
+
+        db.refresh(activation_token)
+        token_value = activation_token.token
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred token creation.",
+        )
+    else:
+        background_tasks.add_task(
+            email_sender.send_activation_email,
+            user_data.email,
+            token_value,
+        )
+    return MessageSchema(message="A new activation link has been sent.")
 
 
 @router.get("/activate/", response_model=MessageSchema)

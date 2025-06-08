@@ -86,3 +86,7 @@ class ActivateRequestSchema(BaseModel):
 
 class LogoutRequestSchema(BaseModel):
     refresh_token: str
+
+
+class EmailRequestSchema(BaseModel):
+    email: EmailStr
