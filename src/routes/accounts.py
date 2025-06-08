@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
@@ -31,6 +31,8 @@ from schemas.accounts import (
     PasswordResetCompleteRequestSchema,
     LogoutRequestSchema,
     EmailRequestSchema,
+    TokenRefreshRequestSchema,
+    TokenRefreshResponseSchema,
 )
 from security.token_manager import JWTManager
 from services import EmailSender
@@ -213,10 +215,10 @@ def login_user(
     jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
 
     try:
-        refresh_token = RefreshTokenModel.create(
+        new_refresh_token = RefreshTokenModel.create(
             user_id=user.id, token=jwt_refresh_token, days=settings.LOGIN_DAYS
         )
-        db.add(refresh_token)
+        db.add(new_refresh_token)
         db.flush()
         db.commit()
     except SQLAlchemyError:
@@ -257,6 +259,41 @@ def logout_user(
         )
 
     return MessageSchema(message="Logged out successfully.")
+
+
+@router.post("/refresh/", response_model=TokenRefreshResponseSchema)
+def refresh_token(
+    token_data: TokenRefreshRequestSchema,
+    db: Session = Depends(get_db),
+    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+) -> TokenRefreshResponseSchema:
+    token_record = (
+        db.query(RefreshTokenModel).filter_by(token=token_data.refresh_token).first()
+    )
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token."
+        )
+
+    if token_record.expires_at < datetime.now(timezone.utc):
+        db.delete(token_record)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired."
+        )
+
+    user = db.query(UserModel).filter_by(id=token_record.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
+
+    new_access_token = jwt_manager.create_access_token(
+        data={"user_id": user.id}, expires_delta=timedelta(minutes=15)
+    )
+
+    return TokenRefreshResponseSchema(access_token=new_access_token)
 
 
 @router.post("/change-password/", response_model=MessageSchema)
