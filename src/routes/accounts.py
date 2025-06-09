@@ -215,6 +215,10 @@ def login_user(
     jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
 
     try:
+        db.query(RefreshTokenModel).filter_by(
+            user_id=user.id
+        ).delete()  # delete existing token
+
         new_refresh_token = RefreshTokenModel.create(
             user_id=user.id, token=jwt_refresh_token, days=settings.LOGIN_DAYS
         )
@@ -267,13 +271,26 @@ def refresh_token(
     db: Session = Depends(get_db),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ) -> TokenRefreshResponseSchema:
+    try:
+        payload = jwt_manager.decode_token(token_data.refresh_token, is_refresh=True)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
+        )
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
+        )
+
     token_record = (
         db.query(RefreshTokenModel).filter_by(token=token_data.refresh_token).first()
     )
-
     if not token_record:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token."
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found."
         )
 
     if token_record.expires_at < datetime.now(timezone.utc):
@@ -283,7 +300,7 @@ def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired."
         )
 
-    user = db.query(UserModel).filter_by(id=token_record.user_id).first()
+    user = db.query(UserModel).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found."

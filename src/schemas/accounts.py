@@ -7,7 +7,7 @@ from pydantic import (
     Field,
 )
 
-from utils import password_validation
+from validation import password_validation
 
 
 class EmailPasswordSchema(BaseModel):
