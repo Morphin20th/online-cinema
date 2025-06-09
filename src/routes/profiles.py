@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import date
 
@@ -25,6 +26,10 @@ MEDIA_DIR = get_settings().PROJECT_ROOT / "src" / "storage" / "media" / "avatars
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def is_user_authorized(user_id: int, token_user_id: int, group_id: int) -> bool:
+    return token_user_id == user_id or group_id == 1
+
+
 def save_avatar(file: UploadFile, user_id: int) -> str:
     extension = file.filename.split(".")[-1].lower()
     unique_filename = f"user_{user_id}_{uuid.uuid4().hex}.{extension}"
@@ -43,12 +48,12 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
 )
 def create_profile(
     user_id: int,
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    avatar: UploadFile = File(...),
-    gender: str = Form(...),
-    date_of_birth: date = Form(...),
-    info: str = Form(...),
+    first_name: str = Form(None),
+    last_name: str = Form(None),
+    avatar: UploadFile = File(None),
+    gender: str = Form(None),
+    date_of_birth: date = Form(None),
+    info: str = Form(None),
     db: Session = Depends(get_db),
     authorization: str = Depends(get_token),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
@@ -56,7 +61,8 @@ def create_profile(
     try:
         payload = jwt_manager.decode_token(authorization)
         token_user_id = payload.get("user_id")
-        if token_user_id != user_id:
+        user = db.query(UserModel).filter_by(id=token_user_id).first()
+        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
             )
@@ -66,15 +72,18 @@ def create_profile(
         )
 
     try:
-        validate_name(first_name)
-        validate_name(last_name)
-        validate_birth_date(date_of_birth)
-        validate_gender(gender)
-
-        if not info.strip():
+        if first_name:
+            validate_name(first_name)
+        if last_name:
+            validate_name(last_name)
+        if date_of_birth:
+            validate_birth_date(date_of_birth)
+        if gender:
+            validate_gender(gender)
+        if info is not None and not info.strip():
             raise ValueError("Info field cannot be empty or contain only spaces.")
-
-        validate_image(avatar)
+        if avatar:
+            validate_image(avatar)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
@@ -86,17 +95,23 @@ def create_profile(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    avatar_path = save_avatar(avatar, user_id)
+    existing_profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
+    if existing_profile:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Profile already exists."
+        )
+
+    avatar_path = save_avatar(avatar, user_id) if avatar else ""
 
     try:
         profile = UserProfileModel(
             user_id=user_id,
-            first_name=first_name,
-            last_name=last_name,
+            first_name=first_name or "",
+            last_name=last_name or "",
             avatar=avatar_path,
-            gender=GenderEnum(gender),
+            gender=GenderEnum(gender) if gender else None,
             date_of_birth=date_of_birth,
-            info=info,
+            info=info or "",
         )
         db.add(profile)
         db.commit()
@@ -108,4 +123,114 @@ def create_profile(
             detail="Something went wrong.",
         )
 
+    return profile
+
+
+@router.patch(
+    "/users/{user_id}/profile/",
+    response_model=ProfileSchema,
+    status_code=status.HTTP_200_OK,
+)
+def update_profile(
+    user_id: int,
+    first_name: str = Form(None),
+    last_name: str = Form(None),
+    avatar: UploadFile = File(None),
+    gender: str = Form(None),
+    date_of_birth: date = Form(None),
+    info: str = Form(None),
+    db: Session = Depends(get_db),
+    authorization: str = Depends(get_token),
+    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+):
+    try:
+        payload = jwt_manager.decode_token(authorization)
+        token_user_id = payload.get("user_id")
+        user = db.query(UserModel).filter_by(id=token_user_id).first()
+        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
+            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+    profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
+        )
+
+    try:
+        if first_name:
+            validate_name(first_name)
+            profile.first_name = first_name
+        if last_name:
+            validate_name(last_name)
+            profile.last_name = last_name
+        if gender:
+            validate_gender(gender)
+            profile.gender = GenderEnum(gender)
+        if date_of_birth:
+            validate_birth_date(date_of_birth)
+            profile.date_of_birth = date_of_birth
+        if info is not None:
+            if not info.strip():
+                raise ValueError("Info field cannot be empty or contain only spaces.")
+            profile.info = info
+        if avatar:
+            validate_image(avatar)
+            old_avatar_path = (
+                get_settings().PROJECT_ROOT / "src" / profile.avatar.strip("/")
+            )
+            if old_avatar_path.exists():
+                os.remove(old_avatar_path)
+            profile.avatar = save_avatar(avatar, user_id)
+
+        db.commit()
+        db.refresh(profile)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
+        )
+
+    return profile
+
+
+@router.get(
+    "/users/{user_id}/profile",
+    response_model=ProfileSchema,
+    status_code=status.HTTP_200_OK,
+)
+def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db),
+    authorization: str = Depends(get_token),
+    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+):
+    try:
+        payload = jwt_manager.decode_token(authorization)
+        token_user_id = payload.get("user_id")
+        user = db.query(UserModel).filter_by(id=token_user_id).first()
+        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
+            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+    profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
+        )
     return profile
