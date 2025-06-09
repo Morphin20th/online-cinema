@@ -25,6 +25,14 @@ class BaseAppSettings(BaseSettings):
     EMAIL_HOST_PASSWORD: str = os.getenv("EMAIL_HOST_PASSWORD", "test_password")
     FROM_EMAIL: str = os.getenv("FROM_EMAIL", "no-reply@cinema.com")
 
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = os.getenv("REDIS_PORT", 6379)
+    REDIS_DB: int = os.getenv("REDIS_DB", 0)
+
+    @property
+    def CELERY_URL(self):
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
 
 class Settings(BaseAppSettings):
     DB_USER: str = os.getenv("DB_USER", "test_user")

@@ -4,12 +4,14 @@ from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import EmailStr
+from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
 from config import get_jwt_auth_manager, get_settings, get_email_sender
 from config.config import BaseAppSettings
+from config.dependencies import get_redis_client
 from database import PasswordResetTokenModel
 from database.models.accounts import (
     UserModel,
@@ -34,6 +36,7 @@ from schemas.accounts import (
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
 )
+from security.dependencies import get_token, get_current_user
 from security.token_manager import JWTManager
 from services import EmailSender
 
@@ -240,27 +243,36 @@ def login_user(
 
 @router.post("/logout/", response_model=MessageSchema)
 def logout_user(
-    user_data: LogoutRequestSchema, db: Session = Depends(get_db)
+    user_data: LogoutRequestSchema,
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token),
+    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    redis: Redis = Depends(get_redis_client),
 ) -> MessageSchema:
+    try:
+        payload = jwt_manager.decode_token(token)
+    except HTTPException:
+        raise
+
     token_record = (
         db.query(RefreshTokenModel).filter_by(token=user_data.refresh_token).first()
     )
+    if token_record:
+        try:
+            db.delete(token_record)
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to logout. Try again.",
+            )
 
-    if not token_record:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token.",
-        )
-
-    try:
-        db.delete(token_record)
-        db.commit()
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to logout. Try again.",
-        )
+    # 3. Add access token to blacklist (Redis) with TTL
+    exp = payload.get("exp")
+    if exp:
+        ttl = exp - int(datetime.now(timezone.utc).timestamp())
+        redis.setex(f"bl:{token}", ttl, "blacklisted")
 
     return MessageSchema(message="Logged out successfully.")
 
@@ -270,6 +282,7 @@ def refresh_token(
     token_data: TokenRefreshRequestSchema,
     db: Session = Depends(get_db),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TokenRefreshResponseSchema:
     try:
         payload = jwt_manager.decode_token(token_data.refresh_token, is_refresh=True)
@@ -280,9 +293,10 @@ def refresh_token(
         )
 
     user_id = payload.get("user_id")
-    if not user_id:
+    if user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token does not belong to the authenticated user.",
         )
 
     token_record = (
@@ -300,14 +314,8 @@ def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired."
         )
 
-    user = db.query(UserModel).filter_by(id=user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
-        )
-
     new_access_token = jwt_manager.create_access_token(
-        data={"user_id": user.id}, expires_delta=timedelta(minutes=15)
+        data={"user_id": current_user.id}, expires_delta=timedelta(minutes=15)
     )
 
     return TokenRefreshResponseSchema(access_token=new_access_token)
@@ -317,28 +325,27 @@ def refresh_token(
 def change_password(
     user_data: ChangePasswordRequestSchema,
     db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> MessageSchema:
-    user = get_user_by_email(user_data.email, db)
-
-    if not user or not user.is_active:
+    if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Error occurred."
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user."
         )
 
-    if not user.verify_password(user_data.old_password):
+    if not current_user.verify_password(user_data.old_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail="Invalid current password.",
         )
 
     if user_data.old_password == user_data.new_password:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="New password can not be same as the old one.",
+            detail="New password cannot be same as the old one.",
         )
 
     try:
-        user.password = user_data.new_password
+        current_user.password = user_data.new_password
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -346,6 +353,7 @@ def change_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong.",
         )
+
     return MessageSchema(message="Password has been changed successfully!")
 
 

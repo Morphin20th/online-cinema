@@ -1,4 +1,5 @@
 from fastapi import Depends
+from redis import Redis
 
 from security.token_manager import JWTManager
 from services import EmailSender
@@ -28,4 +29,13 @@ def get_email_sender(settings: BaseAppSettings = Depends(get_settings)) -> Email
         from_email=settings.FROM_EMAIL,
         app_url=settings.APP_URL,
         project_root=settings.PROJECT_ROOT,
+    )
+
+
+def get_redis_client():
+    return Redis(
+        host=get_settings().REDIS_HOST,
+        port=get_settings().REDIS_PORT,
+        db=get_settings().REDIS_DB,
+        decode_responses=True,
     )

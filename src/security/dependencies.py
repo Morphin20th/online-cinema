@@ -1,7 +1,9 @@
 from fastapi import Request, HTTPException, status, Depends
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from config import get_jwt_auth_manager
+from config.dependencies import get_redis_client
 from database import UserModel
 from database.session import get_db
 from security.token_manager import JWTManager
@@ -31,7 +33,14 @@ def get_current_user(
     token: str = Depends(get_token),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
 ) -> type[UserModel]:
+    if redis.get(f"bl:{token}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been blacklisted",
+        )
+
     try:
         payload = jwt_manager.decode_token(token)
         user_id = payload.get("user_id")
