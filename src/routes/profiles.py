@@ -7,12 +7,11 @@ from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from config import get_jwt_auth_manager, get_settings
+from config import get_settings
 from database.models.accounts import GenderEnum, UserProfileModel, UserModel
 from database.session import get_db
 from schemas.profiles import ProfileSchema
-from security.dependencies import get_token
-from security.token_manager import JWTManager
+from security.dependencies import get_current_user, get_current_active_user
 from validation.profile_validators import (
     validate_name,
     validate_birth_date,
@@ -48,6 +47,7 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
 )
 def create_profile(
     user_id: int,
+    current_user: UserModel = Depends(get_current_active_user),
     first_name: str = Form(None),
     last_name: str = Form(None),
     avatar: UploadFile = File(None),
@@ -55,20 +55,11 @@ def create_profile(
     date_of_birth: date = Form(None),
     info: str = Form(None),
     db: Session = Depends(get_db),
-    authorization: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ):
-    try:
-        payload = jwt_manager.decode_token(authorization)
-        token_user_id = payload.get("user_id")
-        user = db.query(UserModel).filter_by(id=token_user_id).first()
-        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
-            )
-    except Exception:
+    if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only create your own profile",
         )
 
     try:
@@ -89,8 +80,8 @@ def create_profile(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
 
-    user = db.query(UserModel).filter_by(id=user_id).first()
-    if not user:
+    target_user = db.query(UserModel).filter_by(id=user_id).first()
+    if not target_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
@@ -120,7 +111,7 @@ def create_profile(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Failed to create profile",
         )
 
     return profile
@@ -133,6 +124,7 @@ def create_profile(
 )
 def update_profile(
     user_id: int,
+    current_user: UserModel = Depends(get_current_active_user),
     first_name: str = Form(None),
     last_name: str = Form(None),
     avatar: UploadFile = File(None),
@@ -140,20 +132,11 @@ def update_profile(
     date_of_birth: date = Form(None),
     info: str = Form(None),
     db: Session = Depends(get_db),
-    authorization: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ):
-    try:
-        payload = jwt_manager.decode_token(authorization)
-        token_user_id = payload.get("user_id")
-        user = db.query(UserModel).filter_by(id=token_user_id).first()
-        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
-            )
-    except Exception:
+    if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin or profile owner can update profile",
         )
 
     profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
@@ -177,7 +160,7 @@ def update_profile(
             profile.date_of_birth = date_of_birth
         if info is not None:
             if not info.strip():
-                raise ValueError("Info field cannot be empty or contain only spaces.")
+                raise ValueError("Info cannot be empty or whitespace only")
             profile.info = info
         if avatar:
             validate_image(avatar)
@@ -190,6 +173,7 @@ def update_profile(
 
         db.commit()
         db.refresh(profile)
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
@@ -198,7 +182,7 @@ def update_profile(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Database operation failed",
         )
 
     return profile
@@ -211,21 +195,13 @@ def update_profile(
 )
 def get_user_profile(
     user_id: int,
+    current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
-    authorization: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ):
-    try:
-        payload = jwt_manager.decode_token(authorization)
-        token_user_id = payload.get("user_id")
-        user = db.query(UserModel).filter_by(id=token_user_id).first()
-        if not user or not is_user_authorized(user_id, token_user_id, user.group_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user access"
-            )
-    except Exception:
+    if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin or profile owner can view profile",
         )
 
     profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
@@ -233,4 +209,5 @@ def get_user_profile(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
         )
+
     return profile
