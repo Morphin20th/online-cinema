@@ -1,0 +1,35 @@
+# cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Editor & OS files
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Secrets & environment files
+.env
+.env.*
+
+# Media uploads (avatars, etc.)
+src/storage/media/
+
+# Alembic cache
+src/database/migrations/__pycache__/
+
+# Dockerfile-specific
+docker-compose.override.yml

@@ -1,7 +1,7 @@
 from celery import Celery
 from celery.schedules import crontab
 
-from config import get_settings
+from src.config import get_settings
 
 celery_app = Celery("cinema")
 celery_app.conf.broker_url = get_settings().CELERY_URL

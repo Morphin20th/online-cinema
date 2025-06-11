@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_serializer
 
-from database.models.accounts import GenderEnum
+from src.database import GenderEnum
 
 
 class ProfileSchema(BaseModel):

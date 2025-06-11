@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from src.database import ActivationTokenModel, RefreshTokenModel
 from src.database.session import PostgreSQLSessionLocal
-from tasks_manager.celery_app import celery_app
+from src.tasks_manager.celery_app import celery_app
 
 
 @celery_app.task(name="src.tasks_manager.tasks.cleanup.delete_expired_tokens")

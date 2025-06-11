@@ -4,9 +4,9 @@ from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from database.models.base import Base
-from config import get_settings
-from database.models import accounts  # noqa
+from src.database.models.base import Base
+from src.config import get_settings
+from src.database.models import accounts  # noqa
 
 config = context.config
 

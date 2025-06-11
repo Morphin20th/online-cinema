@@ -2,11 +2,10 @@ from fastapi import Request, HTTPException, status, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from config import get_jwt_auth_manager
-from config.dependencies import get_redis_client
-from database import UserModel
-from database.session import get_db
-from security.token_manager import JWTManager
+from src.config import get_redis_client, get_jwt_auth_manager
+from src.database import UserModel
+from src.database import get_db
+from src.security.token_manager import JWTManager
 
 
 def get_token(request: Request) -> str:

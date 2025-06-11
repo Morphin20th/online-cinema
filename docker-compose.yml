@@ -1,7 +1,74 @@
 services:
+  app:
+    volumes:
+      - ./src:/usr/src/app/src
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      RUN_MIGRATIONS: "true"
+    entrypoint: ["/commands/entrypoint.sh"]
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app worker --loglevel=info"
+    depends_on:
+      - redis
+      - db
+      - app
+    env_file:
+      - .env
+    environment:
+      RUN_MIGRATIONS: "true"
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app beat --loglevel=info"
+    depends_on:
+      - redis
+      - db
+      - app
+    env_file:
+      - .env
+    environment:
+      RUN_MIGRATIONS: "true"
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: online_cinema
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog
     ports:
-      - "1026:1025"
-      - "8026:8025"
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  pgdata:

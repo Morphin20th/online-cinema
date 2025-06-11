@@ -1,9 +1,9 @@
 from fastapi import Depends
 from redis import Redis
 
-from security.token_manager import JWTManager
-from services import EmailSender
-from .config import Settings, BaseAppSettings
+from src.security.token_manager import JWTManager
+from src.services import EmailSender
+from src.config.config import Settings, BaseAppSettings
 
 
 def get_settings() -> Settings:

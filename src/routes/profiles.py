@@ -7,12 +7,12 @@ from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from config import get_settings
-from database.models.accounts import GenderEnum, UserProfileModel, UserModel
-from database.session import get_db
-from schemas.profiles import ProfileSchema
-from security.dependencies import get_current_user, get_current_active_user
-from validation.profile_validators import (
+from src.config import get_settings
+from src.database import GenderEnum, UserProfileModel, UserModel
+from src.database import get_db
+from src.schemas.profiles import ProfileSchema
+from src.security.dependencies import get_current_user, get_current_active_user
+from src.validation import (
     validate_name,
     validate_birth_date,
     validate_gender,
