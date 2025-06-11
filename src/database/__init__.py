@@ -1,4 +1,4 @@
-from database.models.accounts import (
+from src.database.models.accounts import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
@@ -6,4 +6,5 @@ from database.models.accounts import (
     PasswordResetTokenModel,
     RefreshTokenModel,
     UserProfileModel,
+    GenderEnum,
 )

@@ -9,20 +9,24 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from config import get_jwt_auth_manager, get_settings, get_email_sender
-from config.config import BaseAppSettings
-from config.dependencies import get_redis_client
-from database import PasswordResetTokenModel
-from database.models.accounts import (
+from src.config import BaseAppSettings
+from src.dependencies import (
+    get_jwt_auth_manager,
+    get_settings,
+    get_email_sender,
+    get_redis_client,
+)
+from src.database import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
     ActivationTokenModel,
     RefreshTokenModel,
+    PasswordResetTokenModel,
 )
-from database.session import get_db
-from database.utils import generate_secure_token
-from schemas.accounts import (
+from src.database.session import get_db
+from src.database.utils import generate_secure_token
+from src.schemas.accounts import (
     UserRegistrationResponseSchema,
     UserRegistrationRequestSchema,
     UserLoginResponseSchema,
@@ -36,9 +40,9 @@ from schemas.accounts import (
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
 )
-from security.dependencies import get_token, get_current_user
-from security.token_manager import JWTManager
-from services import EmailSender
+from src.dependencies import get_token, get_current_user
+from src.security.token_manager import JWTManager
+from src.services import EmailSender
 
 router = APIRouter()
 

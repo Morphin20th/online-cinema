@@ -6,7 +6,7 @@ from fastapi import UploadFile
 
 from PIL import Image
 
-from database.models.accounts import GenderEnum
+from src.database import GenderEnum
 
 
 def validate_name(name: str):

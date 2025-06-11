@@ -8,5 +8,4 @@ venv/
 .idea/
 
 
-src/database/startup_data.py
 src/storage/media/
