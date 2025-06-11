@@ -4,5 +4,5 @@ from src.dependencies.auth import (
     get_token,
     get_current_user,
     get_current_active_user,
-    check_admin_role,
 )
+from src.dependencies.group import admin_required

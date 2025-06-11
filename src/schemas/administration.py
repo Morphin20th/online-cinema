@@ -1,12 +1,10 @@
-from pydantic import BaseModel, EmailStr, field_serializer
+from pydantic import BaseModel
+
+from src.schemas._mixins import EmailMixin
 
 
-class BaseEmailSchema(BaseModel):
-    email: EmailStr
-
-    @field_serializer("email")
-    def serialize_email(self, value: str) -> str:
-        return value.lower()
+class BaseEmailSchema(EmailMixin, BaseModel):
+    pass
 
 
 class ChangeGroupRequest(BaseEmailSchema):

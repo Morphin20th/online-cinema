@@ -55,10 +55,8 @@ def get_current_user(
     try:
         payload = jwt_manager.decode_token(token)
         user_id = payload.get("user_id")
-        print(payload.get("user_id"))
 
         if not user_id:
-            print("no ID")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload",
@@ -90,13 +88,5 @@ def get_current_active_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user",
-        )
-    return current_user
-
-
-def check_admin_role(current_user: UserModel = Depends(get_current_active_user)):
-    if not current_user.group_id == 1:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
     return current_user
