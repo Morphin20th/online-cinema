@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.dependencies import get_settings
 from src.database import GenderEnum, UserProfileModel, UserModel
-from src.database import get_db
+from src.database.session import get_db
 from src.schemas.profiles import ProfileSchema
 from src.dependencies import get_current_user, get_current_active_user
 from src.validation import (

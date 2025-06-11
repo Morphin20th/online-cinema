@@ -24,7 +24,7 @@ from src.database import (
     RefreshTokenModel,
     PasswordResetTokenModel,
 )
-from src.database import get_db
+from src.database.session import get_db
 from src.database.utils import generate_secure_token
 from src.schemas.accounts import (
     UserRegistrationResponseSchema,

@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     environment:
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
 
   beat:
     build:
@@ -43,7 +43,7 @@ services:
     env_file:
       - .env
     environment:
-      RUN_MIGRATIONS: "true"
+      RUN_MIGRATIONS: "false"
 
   db:
     image: postgres:latest

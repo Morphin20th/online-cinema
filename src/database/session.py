@@ -1,10 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from src.dependencies import get_settings
+from src.config.config import Settings
 
-settings = get_settings()
-
+settings = Settings()
 engine = create_engine(settings.DATABASE_URL)
 PostgreSQLSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

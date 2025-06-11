@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from src.database import UserModel, ActivationTokenModel
-from src.database import get_db
+from src.database.session import get_db
 from src.schemas.accounts import MessageSchema
 from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
 from src.dependencies import check_admin_role

@@ -8,4 +8,3 @@ from src.database.models.accounts import (
     UserProfileModel,
     GenderEnum,
 )
-from src.database.session import get_db

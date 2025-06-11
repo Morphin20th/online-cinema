@@ -42,61 +42,73 @@ A backend service designed for a movie catalog and management platform with user
 
 ## Getting Started
 
-Follow these steps to set up and run the project in your local development environment.
-1. Clone the Repository
+You can run the project either **locally with Poetry** or **in containers using Docker**.
+
+- Clone the Repository
 
 ```bash
 git clone https://github.com/Morphin20th/online-cinema.git
 cd online-cinema
 ```
 
-2. Set Up Environment Variables
+- Set Up Environment Variables
 
 ```bash
 cp .env.sample .env
 ```
 
-3. Create and Activate Virtual Environment
+### Run localy with Poetry
+
+1. Create and Activate Virtual Environment
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 ```
 
-4. Install Dependencies
+2. Install Dependencies
 
 ```bash
 pip install poetry
 poetry install
 ```
 
-5. Start Required Services
+3. Start Required Services
 
 ```bash
 sudo systemctl start postgresql
 sudo systemctl start redis
 ```
 
-6. Run Mailhog 
+4. Run Mailhog 
 
 Use Docker Compose to start Mailhog:
 
 ```bash
-docker compose up -d mailhog
+docker compose up mailhog
 ```
-> Mailhog web UI: http://localhost:8026
 
-7. Apply Migrations
+5. Apply Migrations
 
 ```bash
 alembic upgrade head
 ```
 
-8. Run the Server
+6. Run the Server
 
 ```bash
 uvicorn main:app --reload --port 8001
 ```
+
+
+
+### Run with Docker
+
+```bash
+docker compose up --build
+```
+
+> Mailhog web UI: http://localhost:8025
 
 > API will be running at: http://localhost:8001
 
@@ -108,14 +120,16 @@ uvicorn main:app --reload --port 8001
 ```
 .
 ├── alembic.ini
+├── commands
+│   └── entrypoint.sh
 ├── docker-compose.yml
+├── Dockerfile
 ├── poetry.lock
 ├── pyproject.toml
 ├── README.md
 └── src
     ├── config
     │   ├── config.py
-    │   ├── dependencies.py
     │   └── __init__.py
     ├── database
     │   ├── __init__.py
@@ -132,6 +146,10 @@ uvicorn main:app --reload --port 8001
     │   ├── session.py
     │   ├── startup_data.py
     │   └── utils.py
+    ├── dependencies
+    │   ├── auth.py
+    │   ├── config.py
+    │   └── __init__.py
     ├── __init__.py
     ├── main.py
     ├── routes
@@ -145,7 +163,6 @@ uvicorn main:app --reload --port 8001
     │   ├── __init__.py
     │   └── profiles.py
     ├── security
-    │   ├── dependencies.py
     │   ├── __init__.py
     │   ├── password.py
     │   └── token_manager.py
@@ -161,7 +178,6 @@ uvicorn main:app --reload --port 8001
     │           └── password_reset_request.html
     ├── storage
     │   └── media
-    │       └── avatars
     ├── tasks_manager
     │   ├── celery_app.py
     │   ├── __init__.py
@@ -180,13 +196,13 @@ uvicorn main:app --reload --port 8001
 ### **Root Directory**
 - **`README.MD`**: Main project documentation.
 - **`poetry.lock`** & **`pyproject.toml`**: Poetry-based dependency management.
-- **`docker-compose.yml`**: Run Mailhog
+- **`docker-compose.yml`**: Defines and manages multi-container Docker applications (FastAPI app, PostgreSQL, Redis, Celery, Mailhog).
+- **`Dockerfile`**: Builds the FastAPI application image with all dependencies and startup logic.
+
 
 ### **Source Directory (`src`)**
 
-
 #### **Configuration (`config`)**
-- **`dependencies.py`**: Defines FastAPI dependencies for dependency injection.
 - **`config.py`**: Manages project settings, including database configurations and external service settings.
 
 #### **Database (`database`)**
@@ -196,6 +212,10 @@ uvicorn main:app --reload --port 8001
 - **`migrations/`**: Alembic migration environment and revision files.
   - **`env.py`**: Alembic environment configuration.
   - **`versions/`**: Individual migration scripts.
+
+#### **Dependencies (`dependencies`)
+- **`auth.py`**: Authentication and User dependencies.
+- **`config.py`**: Project Configuration dependencies.
 
 #### **Routes (`routes`)**
 - **`accounts.py`**: Endpoints for registration, login, password management, activation.
@@ -210,16 +230,13 @@ uvicorn main:app --reload --port 8001
 #### **Security (`security`)**
 - **`token_manager.py`**: Handles JWT token creation, decoding, validation.
 - **`password.py`**: Password hashing and verification logic.
-- **`dependencies.py`**: Security-related dependencies (e.g. current user, permissions).
 
 #### **Services (`services`)**
 - **`email_service.py`**: Sends email messages (activation, password reset, etc.).
 - **`templates/emails/`**: HTML templates for various email types.
 
-
 #### **Storage (`storage`)**
 - **`media/avatars/`**: Directory for storing uploaded user avatar images.
-
 
 #### **Tasks Manager (`tasks_manager`)**
 - **`celery_app.py`**: Celery application initialization.
