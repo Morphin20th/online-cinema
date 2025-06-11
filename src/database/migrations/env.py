@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from src.database.models.base import Base
-from src.config import get_settings
+from src.dependencies import get_settings
 from src.database.models import accounts  # noqa
 
 config = context.config

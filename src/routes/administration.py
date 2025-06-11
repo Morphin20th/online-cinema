@@ -8,7 +8,7 @@ from src.database import UserModel, ActivationTokenModel
 from src.database import get_db
 from src.schemas.accounts import MessageSchema
 from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
-from src.security.dependencies import check_admin_role
+from src.dependencies import check_admin_role
 
 router = APIRouter()
 

@@ -9,12 +9,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from src.config import (
+from src.config import BaseAppSettings
+from src.dependencies import (
     get_jwt_auth_manager,
     get_settings,
     get_email_sender,
     get_redis_client,
-    BaseAppSettings,
 )
 from src.database import (
     UserModel,
@@ -40,7 +40,7 @@ from src.schemas.accounts import (
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
 )
-from src.security.dependencies import get_token, get_current_user
+from src.dependencies import get_token, get_current_user
 from src.security.token_manager import JWTManager
 from src.services import EmailSender
 
