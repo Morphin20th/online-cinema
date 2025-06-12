@@ -86,7 +86,7 @@ class GenreModel(Base):
     def __repr__(self) -> str:
         return f"<GenreModel(id={self.id}, name={self.name}>"
 
-    movies = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         "MovieModel", back_populates="genres", secondary=MoviesGenresTable
     )
 
@@ -100,7 +100,7 @@ class StarModel(Base):
     def __repr__(self) -> str:
         return f"<StarModel(id={self.id}, name={self.name}>"
 
-    movies = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         "MovieModel", back_populates="stars", secondary=MoviesStarsTable
     )
 
@@ -114,7 +114,7 @@ class DirectorModel(Base):
     def __repr__(self) -> str:
         return f"<DirectorModel(id={self.id}, name={self.name}>"
 
-    movies = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         "MovieModel", back_populates="directors", secondary=MoviesDirectorsTable
     )
 
@@ -128,7 +128,9 @@ class CertificationModel(Base):
     def __repr__(self) -> str:
         return f"<CertificationModel(id={self.id}, name={self.name}>"
 
-    movies = relationship("MovieModel", back_populates="certification")
+    movies: Mapped[list["MovieModel"]] = relationship(
+        "MovieModel", back_populates="certification"
+    )
 
 
 class MovieModel(Base):
@@ -154,12 +156,16 @@ class MovieModel(Base):
         Integer, ForeignKey("certifications.id"), nullable=False
     )
 
-    certification = relationship(CertificationModel, back_populates="movies")
-    stars = relationship(StarModel, back_populates="movies", secondary=MoviesStarsTable)
-    genres = relationship(
+    certification: Mapped[CertificationModel] = relationship(
+        CertificationModel, back_populates="movies"
+    )
+    stars: Mapped[list[StarModel]] = relationship(
+        StarModel, back_populates="movies", secondary=MoviesStarsTable
+    )
+    genres: Mapped[list[GenreModel]] = relationship(
         GenreModel, back_populates="movies", secondary=MoviesGenresTable
     )
-    directors = relationship(
+    directors: Mapped[list[DirectorModel]] = relationship(
         DirectorModel, back_populates="movies", secondary=MoviesDirectorsTable
     )
 
