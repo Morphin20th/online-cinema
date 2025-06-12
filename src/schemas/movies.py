@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from src.schemas._mixins import YearMixin
 
 
+# --- Models Schemas ---
 class CertificationSchema(BaseModel):
     id: int
     name: str = Field(..., max_length=100)
@@ -44,16 +45,7 @@ class BaseMovieSchema(YearMixin, BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class MovieDetailSchema(BaseMovieSchema):
-    time: int = Field(..., gt=0)
-    votes: int = 0
-    meta_score: Optional[float] = Field(None, ge=0, le=100)
-    gross: Optional[float] = Field(None, ge=0)
-    genres: List[GenreSchema]
-    directors: List[DirectorSchema]
-    stars: List[StarSchema]
-
-
+# --- Requests ---
 class CreateMovieRequestSchema(YearMixin, BaseModel):
     name: str = Field(..., max_length=250)
     time: int = Field(..., gt=0)
@@ -69,5 +61,31 @@ class CreateMovieRequestSchema(YearMixin, BaseModel):
     stars: List[str]
 
 
-class CreateMovieResponseSchema(BaseMovieSchema):
+class UpdateMovieRequestSchema(BaseModel):
+    name: Optional[str] = None
+    year: Optional[int] = None
+    time: Optional[int] = None
+    imdb: Optional[float] = None
+    votes: Optional[int] = None
+    meta_score: Optional[float] = None
+    gross: Optional[float] = None
+    description: Optional[str] = None
+    price: Optional[Decimal] = None
+    certification: Optional[str] = None
+    genres: Optional[List[str]] = None
+    directors: Optional[List[str]] = None
+    stars: Optional[List[str]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Responses ---
+class MovieDetailSchema(BaseMovieSchema):
     id: int
+    time: int = Field(..., gt=0)
+    votes: int = 0
+    meta_score: Optional[float] = Field(None, ge=0, le=100)
+    gross: Optional[float] = Field(None, ge=0)
+    genres: List[GenreSchema]
+    directors: List[DirectorSchema]
+    stars: List[StarSchema]

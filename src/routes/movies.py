@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
 from src.database.models.movies import (
@@ -11,21 +11,27 @@ from src.database.models.movies import (
     DirectorModel,
 )
 from src.database.session import get_db
+from src.dependencies import get_current_active_user
 from src.dependencies.group import moderator_or_admin_required
-from src.schemas.movies import CreateMovieRequestSchema, CreateMovieResponseSchema
+from src.schemas.common import MessageResponseSchema
+from src.schemas.movies import (
+    CreateMovieRequestSchema,
+    MovieDetailSchema,
+    UpdateMovieRequestSchema,
+)
 
 router = APIRouter()
 
 
 @router.post(
     "/create/",
-    response_model=CreateMovieResponseSchema,
+    response_model=MovieDetailSchema,
     dependencies=[Depends(moderator_or_admin_required)],
 )
 def create_movie(
     data: CreateMovieRequestSchema,
     db: Session = Depends(get_db),
-) -> CreateMovieResponseSchema:
+) -> MovieDetailSchema:
     existing_movie = (
         db.query(MovieModel)
         .filter(
@@ -106,4 +112,142 @@ def create_movie(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong.",
         )
-    return CreateMovieResponseSchema.model_validate(movie)
+    return MovieDetailSchema.model_validate(movie)
+
+
+@router.get(
+    "/{movie_id}/",
+    response_model=MovieDetailSchema,
+    dependencies=[Depends(get_current_active_user)],
+)
+def get_movie(movie_id: int, db: Session = Depends(get_db)) -> MovieDetailSchema:
+    movie = (
+        db.query(MovieModel)
+        .options(
+            joinedload(MovieModel.genres),
+            joinedload(MovieModel.stars),
+            joinedload(MovieModel.directors),
+        )
+        .filter(MovieModel.id == movie_id)
+        .first()
+    )
+
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie with the given ID was not found.",
+        )
+    return MovieDetailSchema.model_validate(movie)
+
+
+# TODO: add purchase condition
+@router.delete(
+    "/{movie_id}/",
+    response_model=MessageResponseSchema,
+    dependencies=[Depends(moderator_or_admin_required)],
+)
+def delete_movie(movie_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
+    movie = db.query(MovieModel).filter(MovieModel.id == movie_id).first()
+
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie with the given ID was not found.",
+        )
+
+    db.delete(movie)
+    db.commit()
+
+    return MessageResponseSchema(message="Movie deleted successfully")
+
+
+@router.patch(
+    "/{movie_id}/",
+    response_model=MovieDetailSchema,
+    dependencies=[Depends(moderator_or_admin_required)],
+)
+def update_movie(
+    movie_id: int, movie_data: UpdateMovieRequestSchema, db: Session = Depends(get_db)
+) -> MovieDetailSchema:
+    movie = db.query(MovieModel).filter(MovieModel.id == movie_id).first()
+
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie with the given ID was not found.",
+        )
+
+    try:
+        data_dict = movie_data.model_dump(exclude_unset=True)
+
+        if "certification" in data_dict:
+            cert = (
+                db.query(CertificationModel)
+                .filter(CertificationModel.name == data_dict["certification"])
+                .first()
+            )
+            if not cert:
+                cert = CertificationModel(name=data_dict["certification"])
+                db.add(cert)
+                db.flush()
+            movie.certification = cert
+            data_dict.pop("certification")
+
+        if "genres" in data_dict:
+            genres_list = []
+            for genre_name in data_dict["genres"]:
+                genre = (
+                    db.query(GenreModel).filter(GenreModel.name == genre_name).first()
+                )
+
+                if not genre:
+                    genre = GenreModel(name=genre_name)
+                    db.add(genre)
+                    db.flush()
+                genres_list.append(genre)
+            movie.genres = genres_list
+            data_dict.pop("genres")
+
+        if "stars" in data_dict:
+            stars_list = []
+            for star_name in data_dict["stars"]:
+                star = db.query(StarModel).filter(StarModel.name == star_name).first()
+
+                if not star:
+                    star = StarModel(name=star_name)
+                    db.add(star)
+                    db.flush()
+                stars_list.append(star)
+            movie.stars = stars_list
+            data_dict.pop("stars")
+
+        if "directors" in data_dict:
+            directors_list = []
+            for director_name in data_dict["directors"]:
+                director = (
+                    db.query(DirectorModel)
+                    .filter(DirectorModel.name == director_name)
+                    .first()
+                )
+
+                if not director:
+                    director = DirectorModel(name=director_name)
+                    db.add(director)
+                    db.flush()
+                directors_list.append(director)
+            movie.directors = directors_list
+            data_dict.pop("directors")
+
+        for key, value in data_dict.items():
+            setattr(movie, key, value)
+        db.commit()
+        db.refresh(movie)
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update movie.",
+        )
+
+    return MovieDetailSchema.model_validate(movie)
