@@ -8,6 +8,12 @@ from src.schemas._mixins import YearMixin
 
 
 # --- Models Schemas ---
+class BaseGenreSchema(BaseModel):
+    name: str = Field(..., max_length=100)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CertificationSchema(BaseModel):
     id: int
     name: str = Field(..., max_length=100)
@@ -29,11 +35,8 @@ class StarSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class GenreSchema(BaseModel):
+class GenreSchema(BaseGenreSchema):
     id: int
-    name: str = Field(..., max_length=100)
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class BaseMovieSchema(YearMixin, BaseModel):

@@ -48,7 +48,7 @@ router = APIRouter()
 
 
 def get_user_by_email(email, db: Session) -> Optional[UserModel]:
-    return db.query(UserModel).filter(UserModel.email == email).first()
+    return db.query(UserModel).filter(UserModel.email.ilike(email)).first()
 
 
 @router.post("/register/", response_model=UserRegistrationResponseSchema)
@@ -59,7 +59,7 @@ def create_user(
     email_sender: EmailSender = Depends(get_email_sender),
     settings: BaseAppSettings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
-    existing_user = db.query(UserModel).filter_by(email=user_data.email).first()
+    existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
