@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Optional, List
+from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -81,7 +82,7 @@ class UpdateMovieRequestSchema(BaseModel):
 
 # --- Responses ---
 class MovieDetailSchema(BaseMovieSchema):
-    id: int
+    uuid: UUID
     time: int = Field(..., gt=0)
     votes: int = 0
     meta_score: Optional[float] = Field(None, ge=0, le=100)
@@ -89,3 +90,17 @@ class MovieDetailSchema(BaseMovieSchema):
     genres: List[GenreSchema]
     directors: List[DirectorSchema]
     stars: List[StarSchema]
+
+
+class MovieListItem(BaseMovieSchema):
+    uuid: UUID
+
+
+class MovieListResponseSchema(BaseModel):
+    movies: List[MovieListItem]
+    prev_page: str
+    next_page: str
+    total_pages: int
+    total_items: int
+
+    model_config = ConfigDict(from_attributes=True)

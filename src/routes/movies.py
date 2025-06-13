@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
@@ -18,6 +21,8 @@ from src.schemas.movies import (
     CreateMovieRequestSchema,
     MovieDetailSchema,
     UpdateMovieRequestSchema,
+    MovieListResponseSchema,
+    MovieListItem,
 )
 
 router = APIRouter()
@@ -116,11 +121,11 @@ def create_movie(
 
 
 @router.get(
-    "/{movie_id}/",
+    "/{movie_uuid}/",
     response_model=MovieDetailSchema,
     dependencies=[Depends(get_current_active_user)],
 )
-def get_movie(movie_id: int, db: Session = Depends(get_db)) -> MovieDetailSchema:
+def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSchema:
     movie = (
         db.query(MovieModel)
         .options(
@@ -128,7 +133,7 @@ def get_movie(movie_id: int, db: Session = Depends(get_db)) -> MovieDetailSchema
             joinedload(MovieModel.stars),
             joinedload(MovieModel.directors),
         )
-        .filter(MovieModel.id == movie_id)
+        .filter(MovieModel.uuid == movie_uuid)
         .first()
     )
 
@@ -142,12 +147,14 @@ def get_movie(movie_id: int, db: Session = Depends(get_db)) -> MovieDetailSchema
 
 # TODO: add purchase condition
 @router.delete(
-    "/{movie_id}/",
+    "/{movie_uuid}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
 )
-def delete_movie(movie_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
-    movie = db.query(MovieModel).filter(MovieModel.id == movie_id).first()
+def delete_movie(
+    movie_uuid: UUID, db: Session = Depends(get_db)
+) -> MessageResponseSchema:
+    movie = db.query(MovieModel).filter(MovieModel.uuid == movie_uuid).first()
 
     if not movie:
         raise HTTPException(
@@ -162,14 +169,16 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db)) -> MessageRespons
 
 
 @router.patch(
-    "/{movie_id}/",
+    "/{movie_uuid}/",
     response_model=MovieDetailSchema,
     dependencies=[Depends(moderator_or_admin_required)],
 )
 def update_movie(
-    movie_id: int, movie_data: UpdateMovieRequestSchema, db: Session = Depends(get_db)
+    movie_uuid: UUID,
+    movie_data: UpdateMovieRequestSchema,
+    db: Session = Depends(get_db),
 ) -> MovieDetailSchema:
-    movie = db.query(MovieModel).filter(MovieModel.id == movie_id).first()
+    movie = db.query(MovieModel).filter(MovieModel.uuid == movie_uuid).first()
 
     if not movie:
         raise HTTPException(
@@ -251,3 +260,38 @@ def update_movie(
         )
 
     return MovieDetailSchema.model_validate(movie)
+
+
+@router.get("/", response_model=MovieListResponseSchema)
+def get_movies(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-based index)"),
+    per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
+    db: Session = Depends(get_db),
+) -> MovieListResponseSchema:
+    offset = (page - 1) * per_page
+
+    total_items = db.scalar(select(func.count()).select_from(MovieModel))
+
+    if total_items == 0:
+        return MovieListResponseSchema(
+            movies=[], prev_page="", next_page="", total_pages=0, total_items=0
+        )
+
+    movies_query = select(MovieModel).offset(offset).order_by().limit(per_page)
+    movies = db.scalars(movies_query).all()
+    total_pages = (total_items + per_page - 1) // per_page
+
+    base_url = str(request.url).split("?")[0]
+    next_page = (
+        f"{base_url}?page={page+1}&per_page={per_page}" if page < total_pages else ""
+    )
+    prev_page = f"{base_url}?page={page-1}&per_page={per_page}" if page > 1 else ""
+
+    return MovieListResponseSchema(
+        movies=[MovieListItem.model_validate(movie) for movie in movies],
+        prev_page=prev_page,
+        next_page=next_page,
+        total_pages=total_pages,
+        total_items=total_items,
+    )
