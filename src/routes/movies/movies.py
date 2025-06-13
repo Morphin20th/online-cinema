@@ -15,17 +15,16 @@ from src.database.models.movies import (
     DirectorModel,
 )
 from src.database.session import get_db
-from src.dependencies import get_current_active_user
-from src.dependencies.group import moderator_or_admin_required
+from src.dependencies import get_current_user, moderator_or_admin_required
+from src.routes.movies import genre_router
 from src.schemas.common import MessageResponseSchema
 from src.schemas.movies import (
     CreateMovieRequestSchema,
     MovieDetailSchema,
     UpdateMovieRequestSchema,
     MovieListResponseSchema,
-    MovieListItem,
 )
-
+from src.utils import build_pagination_links
 
 ALLOWED_SORT_FIELDS = {
     "name": MovieModel.name,
@@ -36,6 +35,7 @@ ALLOWED_SORT_FIELDS = {
 }
 
 router = APIRouter()
+router.include_router(genre_router)
 
 
 def parse_sort_params(sort_params: Optional[str]) -> list:
@@ -150,7 +150,7 @@ def create_movie(
 @router.get(
     "/{movie_uuid}/",
     response_model=MovieDetailSchema,
-    dependencies=[Depends(get_current_active_user)],
+    dependencies=[Depends(get_current_user)],
 )
 def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSchema:
     movie = (
@@ -341,15 +341,10 @@ def get_movies(
     )
     movies = db.scalars(movies_query).all()
     total_pages = (total_items + per_page - 1) // per_page
-
-    base_url = str(request.url).split("?")[0]
-    next_page = (
-        f"{base_url}?page={page+1}&per_page={per_page}" if page < total_pages else ""
-    )
-    prev_page = f"{base_url}?page={page-1}&per_page={per_page}" if page > 1 else ""
+    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
 
     return MovieListResponseSchema(
-        movies=[MovieListItem.model_validate(movie) for movie in movies],
+        movies=[MovieDetailSchema.model_validate(movie) for movie in movies],
         prev_page=prev_page,
         next_page=next_page,
         total_pages=total_pages,

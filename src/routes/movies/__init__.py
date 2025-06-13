@@ -1,0 +1,1 @@
+from src.routes.movies.genres import router as genre_router

@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from src.schemas._mixins import YearMixin
 
@@ -15,7 +15,6 @@ class BaseGenreSchema(BaseModel):
 
 
 class CertificationSchema(BaseModel):
-    id: int
     name: str = Field(..., max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
@@ -100,15 +99,28 @@ class MovieDetailSchema(BaseMovieSchema):
     stars: List[StarSchema]
 
 
-class MovieListItem(BaseMovieSchema):
-    uuid: UUID
-
-
-class MovieListResponseSchema(BaseModel):
-    movies: List[MovieListItem]
+class BaseListSchema(BaseModel):
     prev_page: str
     next_page: str
     total_pages: int
     total_items: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MovieListResponseSchema(BaseListSchema):
+    movies: List[MovieDetailSchema]
+
+
+class GenreListItem(GenreSchema):
+    total_movies: int
+
+
+class GenreListResponseSchema(BaseListSchema):
+    genres: List[GenreListItem]
+
+
+class MoviesByGenreSchema(BaseListSchema):
+    id: int
+    name: str = Field(..., max_length=100)
+    movies: List[BaseMovieSchema]
