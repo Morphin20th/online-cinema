@@ -1,7 +1,8 @@
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc, desc
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
@@ -25,7 +26,33 @@ from src.schemas.movies import (
     MovieListItem,
 )
 
+
+ALLOWED_SORT_FIELDS = {
+    "name": MovieModel.name,
+    "year": MovieModel.year,
+    "imdb": MovieModel.imdb,
+    "price": MovieModel.price,
+    "votes": MovieModel.votes,
+}
+
 router = APIRouter()
+
+
+def parse_sort_params(sort_params: Optional[str]) -> list:
+    if not sort_params:
+        return [desc("name")]
+
+    sort_fields = []
+    for part in sort_params.split(","):
+        part = part.strip()
+        desc_order = part.startswith("-")
+        clean_part = part.lstrip("+-")
+
+        column = ALLOWED_SORT_FIELDS.get(clean_part)
+        if column:
+            sort_fields.append(desc(column) if desc_order else asc(column))
+
+    return sort_fields
 
 
 @router.post(
@@ -268,17 +295,50 @@ def get_movies(
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
+    year: Annotated[Optional[int], Query(description="Filter by year")] = None,
+    imdb: Annotated[Optional[float], Query(description="Filter by IMDb rate")] = None,
+    genre: Annotated[Optional[str], Query(description="Filter by genre")] = None,
+    certification: Annotated[
+        Optional[str], Query(description="Filter by certification")
+    ] = None,
+    sort: Optional[str] = Query(None, description="e.g. `-imdb,year`"),
 ) -> MovieListResponseSchema:
     offset = (page - 1) * per_page
 
-    total_items = db.scalar(select(func.count()).select_from(MovieModel))
+    filters = []
+
+    if year:
+        filters.append(MovieModel.year == year)
+
+    if imdb:
+        filters.append(MovieModel.imdb == imdb)
+
+    if genre:
+        filters.append(MovieModel.genres.any(GenreModel.name.ilike(f"%{genre}%")))
+
+    if certification:
+        filters.append(
+            MovieModel.certification.has(CertificationModel.name.ilike(certification))
+        )
+
+    total_items = db.scalar(
+        select(func.count()).select_from(MovieModel).where(*filters)
+    )
 
     if total_items == 0:
         return MovieListResponseSchema(
             movies=[], prev_page="", next_page="", total_pages=0, total_items=0
         )
 
-    movies_query = select(MovieModel).offset(offset).order_by().limit(per_page)
+    sortings = parse_sort_params(sort)
+
+    movies_query = (
+        select(MovieModel)
+        .where(*filters)
+        .offset(offset)
+        .order_by(*sortings)
+        .limit(per_page)
+    )
     movies = db.scalars(movies_query).all()
     total_pages = (total_items + per_page - 1) // per_page
 

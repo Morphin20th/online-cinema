@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
 
 from src.schemas._mixins import YearMixin
 
@@ -60,6 +60,11 @@ class CreateMovieRequestSchema(YearMixin, BaseModel):
     genres: List[str]
     directors: List[str]
     stars: List[str]
+
+    @field_validator("name", "certification", mode="before")
+    @classmethod
+    def serialize_fields(cls, value: str) -> str:
+        return value.lower()
 
 
 class UpdateMovieRequestSchema(BaseModel):
