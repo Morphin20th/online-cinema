@@ -8,3 +8,6 @@ from src.database.models.accounts import (
     UserProfileModel,
     GenderEnum,
 )
+from src.database.models.movies import (
+    StarModel, DirectorModel, GenreModel, MovieModel, CertificationModel,
+)

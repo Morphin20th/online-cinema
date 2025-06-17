@@ -7,11 +7,10 @@ from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.dependencies import get_settings
 from src.database import GenderEnum, UserProfileModel, UserModel
 from src.database.session import get_db
+from src.dependencies import get_settings, get_current_user
 from src.schemas.profiles import ProfileSchema
-from src.dependencies import get_current_user, get_current_active_user
 from src.validation import (
     validate_name,
     validate_birth_date,
@@ -47,7 +46,7 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
 )
 def create_profile(
     user_id: int,
-    current_user: UserModel = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_user),
     first_name: str = Form(None),
     last_name: str = Form(None),
     avatar: UploadFile = File(None),
@@ -124,7 +123,7 @@ def create_profile(
 )
 def update_profile(
     user_id: int,
-    current_user: UserModel = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_user),
     first_name: str = Form(None),
     last_name: str = Form(None),
     avatar: UploadFile = File(None),

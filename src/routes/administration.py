@@ -6,9 +6,9 @@ from starlette import status
 
 from src.database import UserModel, ActivationTokenModel
 from src.database.session import get_db
-from src.schemas.accounts import MessageSchema
+from src.schemas.common import MessageResponseSchema
 from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
-from src.dependencies import check_admin_role
+from src.dependencies import admin_required
 
 router = APIRouter()
 
@@ -17,11 +17,14 @@ def get_user_by_email(email: EmailStr, db: Session):
     return db.query(UserModel).filter(UserModel.email == email).first()
 
 
-@router.post("/accounts/activate/", response_model=MessageSchema)
+@router.post(
+    "/accounts/activate/",
+    response_model=MessageResponseSchema,
+    dependencies=[Depends(admin_required)],
+)
 def admin_activate_user(
     data: BaseEmailSchema,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(check_admin_role),
 ):
     user = get_user_by_email(data.email, db)
 
@@ -31,7 +34,7 @@ def admin_activate_user(
         )
 
     if user.is_active:
-        return MessageSchema(message="User account is already active")
+        return MessageResponseSchema(message="User account is already active")
 
     try:
         user.is_active = True
@@ -46,14 +49,14 @@ def admin_activate_user(
             detail="Error activating user account",
         )
 
-    return MessageSchema(message="User account activated successfully by admin")
+    return MessageResponseSchema(message="User account activated successfully by admin")
 
 
-@router.post("/accounts/change-group/", response_model=MessageSchema)
+@router.post("/accounts/change-group/", response_model=MessageResponseSchema)
 def change_user_group(
     data: ChangeGroupRequest,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(check_admin_role),
+    current_user: UserModel = Depends(admin_required),
 ):
     user = get_user_by_email(data.email, db)
 
@@ -69,7 +72,9 @@ def change_user_group(
         )
 
     if user.group_id == data.group_id:
-        return MessageSchema(message=f"User already belongs to group {data.group_id}")
+        return MessageResponseSchema(
+            message=f"User already belongs to group {data.group_id}"
+        )
 
     if data.group_id not in [1, 2, 3]:
         raise HTTPException(
@@ -86,4 +91,6 @@ def change_user_group(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong.",
         )
-    return MessageSchema(message=f"User group successfully changed to {data.group_id}.")
+    return MessageResponseSchema(
+        message=f"User group successfully changed to {data.group_id}."
+    )

@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from src.schemas.common import MessageResponseSchema
 from src.config import BaseAppSettings
 from src.dependencies import (
     get_jwt_auth_manager,
@@ -31,7 +32,6 @@ from src.schemas.accounts import (
     UserRegistrationRequestSchema,
     UserLoginResponseSchema,
     UserLoginRequestSchema,
-    MessageSchema,
     ChangePasswordRequestSchema,
     PasswordResetRequestSchema,
     PasswordResetCompleteRequestSchema,
@@ -48,7 +48,7 @@ router = APIRouter()
 
 
 def get_user_by_email(email, db: Session) -> Optional[UserModel]:
-    return db.query(UserModel).filter(UserModel.email == email).first()
+    return db.query(UserModel).filter(UserModel.email.ilike(email)).first()
 
 
 @router.post("/register/", response_model=UserRegistrationResponseSchema)
@@ -59,7 +59,7 @@ def create_user(
     email_sender: EmailSender = Depends(get_email_sender),
     settings: BaseAppSettings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
-    existing_user = db.query(UserModel).filter_by(email=user_data.email).first()
+    existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -106,14 +106,14 @@ def create_user(
     return UserRegistrationResponseSchema.model_validate(new_user)
 
 
-@router.post("/resend-activation/", response_model=MessageSchema)
+@router.post("/resend-activation/", response_model=MessageResponseSchema)
 def resend_activation(
     user_data: EmailRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
     settings: BaseAppSettings = Depends(get_settings),
-) -> MessageSchema:
+) -> MessageResponseSchema:
     existing_user = get_user_by_email(user_data.email, db)
 
     if not existing_user:
@@ -122,7 +122,7 @@ def resend_activation(
         )
 
     if existing_user.is_active:
-        return MessageSchema(message="User is already activated.")
+        return MessageResponseSchema(message="User is already activated.")
 
     existing_token = existing_user.activation_token
 
@@ -157,10 +157,10 @@ def resend_activation(
             user_data.email,
             token_value,
         )
-    return MessageSchema(message="A new activation link has been sent.")
+    return MessageResponseSchema(message="A new activation link has been sent.")
 
 
-@router.get("/activate/", response_model=MessageSchema)
+@router.get("/activate/", response_model=MessageResponseSchema)
 def activate_account(
     background_tasks: BackgroundTasks,
     email: EmailStr = Query(...),
@@ -195,7 +195,7 @@ def activate_account(
             email_sender.send_activation_confirmation_email, email
         )
 
-    return MessageSchema(message="User account activated successfully.")
+    return MessageResponseSchema(message="User account activated successfully.")
 
 
 @router.post("/login/", response_model=UserLoginResponseSchema)
@@ -245,14 +245,14 @@ def login_user(
     )
 
 
-@router.post("/logout/", response_model=MessageSchema)
+@router.post("/logout/", response_model=MessageResponseSchema)
 def logout_user(
     user_data: LogoutRequestSchema,
     db: Session = Depends(get_db),
     token: str = Depends(get_token),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
     redis: Redis = Depends(get_redis_client),
-) -> MessageSchema:
+) -> MessageResponseSchema:
     try:
         payload = jwt_manager.decode_token(token)
     except HTTPException:
@@ -278,7 +278,7 @@ def logout_user(
         ttl = exp - int(datetime.now(timezone.utc).timestamp())
         redis.setex(f"bl:{token}", ttl, "blacklisted")
 
-    return MessageSchema(message="Logged out successfully.")
+    return MessageResponseSchema(message="Logged out successfully.")
 
 
 @router.post("/refresh/", response_model=TokenRefreshResponseSchema)
@@ -325,12 +325,12 @@ def refresh_token(
     return TokenRefreshResponseSchema(access_token=new_access_token)
 
 
-@router.post("/change-password/", response_model=MessageSchema)
+@router.post("/change-password/", response_model=MessageResponseSchema)
 def change_password(
     user_data: ChangePasswordRequestSchema,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
-) -> MessageSchema:
+) -> MessageResponseSchema:
     if not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user."
@@ -358,20 +358,20 @@ def change_password(
             detail="Something went wrong.",
         )
 
-    return MessageSchema(message="Password has been changed successfully!")
+    return MessageResponseSchema(message="Password has been changed successfully!")
 
 
-@router.post("/reset-password/request/", response_model=MessageSchema)
+@router.post("/reset-password/request/", response_model=MessageResponseSchema)
 def reset_password_request(
     user_data: PasswordResetRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
-) -> MessageSchema:
+) -> MessageResponseSchema:
     user = get_user_by_email(user_data.email, db)
 
     if not user or not user.is_active:
-        return MessageSchema(
+        return MessageResponseSchema(
             message="If you have an account, you will receive an email with instructions."
         )
 
@@ -391,18 +391,18 @@ def reset_password_request(
             email_sender.send_password_reset_email, user_data.email, reset_token.token
         )
 
-    return MessageSchema(
+    return MessageResponseSchema(
         message="If you have an account, you will receive an email with instructions."
     )
 
 
-@router.post("/accounts/reset-password/complete/", response_model=MessageSchema)
+@router.post("/accounts/reset-password/complete/", response_model=MessageResponseSchema)
 def reset_password(
     user_data: PasswordResetCompleteRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
-) -> MessageSchema:
+) -> MessageResponseSchema:
     user = get_user_by_email(user_data.email, db)
 
     if not user or not user.is_active:
@@ -441,4 +441,4 @@ def reset_password(
             email_sender.send_password_reset_complete_email, user_data.email
         )
 
-    return MessageSchema(message="Your password has been successfully changed!")
+    return MessageResponseSchema(message="Your password has been successfully changed!")
