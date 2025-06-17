@@ -213,19 +213,27 @@ docker compose up --build
   - **`env.py`**: Alembic environment configuration.
   - **`versions/`**: Individual migration scripts.
 
-#### **Dependencies (`dependencies`)
+#### **Dependencies (`dependencies`)**
 - **`auth.py`**: Authentication and User dependencies.
 - **`config.py`**: Project Configuration dependencies.
+- **`group.py`**: User groups dependencies.
 
 #### **Routes (`routes`)**
 - **`accounts.py`**: Endpoints for registration, login, password management, activation.
 - **`profiles.py`**: User profile-related routes.
-- **`administration.py`**: Admin/moderator-only endpoints (user/group management).
+- **`administration.py`**: Admin-only endpoints (user/group management).
+- **`movies/`**: Movie depended endpoints.
+  -  **`genres.py`**: Genre endpoints.
+  -  **`movies.py`**: Movie endpoints.
+  -  **`stars.py`**: Star endpoints.
 
 #### **Schemas (`schemas`)**
+- **`_mixins.py`**: Mixins for all schemas to use.
 - **`accounts.py`**: Pydantic schemas for auth, login, activation, password reset, etc.
 - **`profiles.py`**: Schemas for profile details and updates.
 - **`administration.py`**: Schemas related to admin-level operations.
+- **`common.py`**: Common schemas used by every route type.
+- **`movies.py`**: Movie, genre, star & director schemas.
 
 #### **Security (`security`)**
 - **`token_manager.py`**: Handles JWT token creation, decoding, validation.
