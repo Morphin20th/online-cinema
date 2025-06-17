@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.database.models.movies import (
+from src.database import (
     MovieModel,
     CertificationModel,
     GenreModel,
@@ -16,7 +16,7 @@ from src.database.models.movies import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
-from src.routes.movies import genre_router
+from src.routes.movies import genre_router, star_router
 from src.schemas.common import MessageResponseSchema
 from src.schemas.movies import (
     CreateMovieRequestSchema,
@@ -35,7 +35,8 @@ ALLOWED_SORT_FIELDS = {
 }
 
 router = APIRouter()
-router.include_router(genre_router)
+router.include_router(genre_router, prefix="/genres")
+router.include_router(star_router, prefix="/stars")
 
 
 def parse_sort_params(sort_params: Optional[str]) -> list:
@@ -85,7 +86,7 @@ def create_movie(
     try:
         certification = (
             db.query(CertificationModel)
-            .filter(CertificationModel.name == data.certification)
+            .filter(CertificationModel.name.ilike(f"%{data.certification}%"))
             .first()
         )
         if not certification:
@@ -95,7 +96,11 @@ def create_movie(
 
         genres = []
         for genre_name in data.genres:
-            genre = db.query(GenreModel).filter(GenreModel.name == genre_name).first()
+            genre = (
+                db.query(GenreModel)
+                .filter(GenreModel.name.ilike(f"%{genre_name}%"))
+                .first()
+            )
             if not genre:
                 genre = GenreModel(name=genre_name)
                 db.add(genre)
@@ -104,7 +109,11 @@ def create_movie(
 
         stars = []
         for star_name in data.stars:
-            star = db.query(StarModel).filter_by(name=star_name).first()
+            star = (
+                db.query(StarModel)
+                .filter(StarModel.name.ilike(f"%{star_name}%"))
+                .first()
+            )
             if not star:
                 star = StarModel(name=star_name)
                 db.add(star)
@@ -113,7 +122,11 @@ def create_movie(
 
         directors = []
         for director_name in data.directors:
-            director = db.query(DirectorModel).filter_by(name=director_name).first()
+            director = (
+                db.query(DirectorModel)
+                .filter(DirectorModel.name.ilike(f"%{director_name}%"))
+                .first()
+            )
             if not director:
                 director = DirectorModel(name=director_name)
                 db.add(director)
@@ -219,7 +232,9 @@ def update_movie(
         if "certification" in data_dict:
             cert = (
                 db.query(CertificationModel)
-                .filter(CertificationModel.name == data_dict["certification"])
+                .filter(
+                    CertificationModel.name.ilike(f"%{data_dict['certification']}%")
+                )
                 .first()
             )
             if not cert:
@@ -233,7 +248,9 @@ def update_movie(
             genres_list = []
             for genre_name in data_dict["genres"]:
                 genre = (
-                    db.query(GenreModel).filter(GenreModel.name == genre_name).first()
+                    db.query(GenreModel)
+                    .filter(GenreModel.name.ilike(f"%{genre_name}%"))
+                    .first()
                 )
 
                 if not genre:
@@ -247,7 +264,11 @@ def update_movie(
         if "stars" in data_dict:
             stars_list = []
             for star_name in data_dict["stars"]:
-                star = db.query(StarModel).filter(StarModel.name == star_name).first()
+                star = (
+                    db.query(StarModel)
+                    .filter(StarModel.name.ilike(f"%{star_name}%"))
+                    .first()
+                )
 
                 if not star:
                     star = StarModel(name=star_name)
@@ -262,7 +283,7 @@ def update_movie(
             for director_name in data_dict["directors"]:
                 director = (
                     db.query(DirectorModel)
-                    .filter(DirectorModel.name == director_name)
+                    .filter(DirectorModel.name.ilike(f"%{director_name}%"))
                     .first()
                 )
 

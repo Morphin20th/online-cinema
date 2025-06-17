@@ -14,6 +14,12 @@ class BaseGenreSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BaseStarSchema(BaseModel):
+    name: str = Field(..., max_length=100)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CertificationSchema(BaseModel):
     name: str = Field(..., max_length=100)
 
@@ -27,11 +33,8 @@ class DirectorSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class StarSchema(BaseModel):
+class StarSchema(BaseStarSchema):
     id: int
-    name: str = Field(..., max_length=100)
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class GenreSchema(BaseGenreSchema):
@@ -124,3 +127,7 @@ class MoviesByGenreSchema(BaseListSchema):
     id: int
     name: str = Field(..., max_length=100)
     movies: List[BaseMovieSchema]
+
+
+class StarListResponseSchema(BaseListSchema):
+    stars: List[StarSchema]

@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from src.database.models.movies import GenreModel, MovieModel
+from src.database import GenreModel, MovieModel
 from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
 from src.schemas.common import MessageResponseSchema
@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/genres/create/",
+    "/create/",
     response_model=GenreSchema,
     dependencies=[Depends(moderator_or_admin_required)],
 )
@@ -50,7 +50,7 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
 
 
 @router.patch(
-    "/genres/{genre_id}/",
+    "/{genre_id}/",
     response_model=GenreSchema,
     dependencies=[Depends(moderator_or_admin_required)],
 )
@@ -79,7 +79,7 @@ def update_genre(
 
 
 @router.get(
-    "/genres/{genre_id}/",
+    "/{genre_id}/",
     response_model=MoviesByGenreSchema,
     dependencies=[Depends(get_current_user)],
 )
@@ -149,7 +149,7 @@ def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageRespons
     return MessageResponseSchema(message="Genre deleted successfully")
 
 
-@router.get("/genres/", response_model=GenreListResponseSchema)
+@router.get("/", response_model=GenreListResponseSchema)
 def get_genres(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
