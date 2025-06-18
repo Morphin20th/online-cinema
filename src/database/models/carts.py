@@ -1,11 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Integer, ForeignKey, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import MovieModel
-from src.database.models.accounts import UserModel
 from src.database.models.base import Base
+
+if TYPE_CHECKING:
+    from src.database.models.movies import MovieModel
+    from src.database.models.accounts import UserModel
 
 
 class CartModel(Base):
@@ -13,11 +16,11 @@ class CartModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False, unique=True
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
 
-    user = relationship(UserModel, back_populates="cart")
-    cart_items = relationship("CartItem", back_populates="cart")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="cart")
+    cart_items = relationship("CartItemModel", back_populates="cart")
 
     def __repr__(self) -> str:
         return f"<Cart(id={self.id}, user_id={self.user_id})>"
@@ -31,14 +34,16 @@ class CartItemModel(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     cart_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("carts.id"), nullable=False
+        Integer, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False
     )
     movie_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("movies.id"), nullable=False
+        Integer, ForeignKey("movies.id", ondelete="CASCADE"), nullable=False
     )
 
-    cart = relationship(Cart, back_populates="cart_items")
-    movie = relationship(MovieModel, back_populates="movie")
+    cart: Mapped[CartModel] = relationship(CartModel, back_populates="cart_items")
+    movie: Mapped["MovieModel"] = relationship(
+        "MovieModel", back_populates="cart_items"
+    )
 
     __table_args__ = (
         UniqueConstraint("cart_id", "movie_id", name="unique_cart_movies_ids"),

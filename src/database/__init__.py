@@ -16,3 +16,4 @@ from src.database.models.movies import (
     CertificationModel,
 )
 from src.database.models.carts import CartModel, CartItemModel
+from src.database.models.purchases import PurchaseModel
