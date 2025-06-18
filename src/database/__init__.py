@@ -9,5 +9,10 @@ from src.database.models.accounts import (
     GenderEnum,
 )
 from src.database.models.movies import (
-    StarModel, DirectorModel, GenreModel, MovieModel, CertificationModel,
+    StarModel,
+    DirectorModel,
+    GenreModel,
+    MovieModel,
+    CertificationModel,
 )
+from src.database.models.carts import CartModel, CartItemModel

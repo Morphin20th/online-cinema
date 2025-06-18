@@ -137,18 +137,19 @@ docker compose up --build
     │   │   ├── env.py
     │   │   ├── script.py.mako
     │   │   └── versions
-    │   │       ├── a1b67ffb1410_update_updated_at_field_at_usermodel.py
-    │   │       └── b54930467e86_initial.py
+    │   │       └── c8b5250556b0_init.py
     │   ├── models
     │   │   ├── accounts.py
     │   │   ├── base.py
-    │   │   └── __init__.py
+    │   │   ├── __init__.py
+    │   │   └── movies.py
     │   ├── session.py
     │   ├── startup_data.py
     │   └── utils.py
     ├── dependencies
     │   ├── auth.py
     │   ├── config.py
+    │   ├── group.py
     │   └── __init__.py
     ├── __init__.py
     ├── main.py
@@ -156,11 +157,19 @@ docker compose up --build
     │   ├── accounts.py
     │   ├── administration.py
     │   ├── __init__.py
+    │   ├── movies
+    │   │   ├── genres.py
+    │   │   ├── __init__.py
+    │   │   ├── movies.py
+    │   │   └── stars.py
     │   └── profiles.py
     ├── schemas
     │   ├── accounts.py
     │   ├── administration.py
+    │   ├── common.py
     │   ├── __init__.py
+    │   ├── _mixins.py
+    │   ├── movies.py
     │   └── profiles.py
     ├── security
     │   ├── __init__.py
@@ -178,6 +187,7 @@ docker compose up --build
     │           └── password_reset_request.html
     ├── storage
     │   └── media
+    │       └── avatars
     ├── tasks_manager
     │   ├── celery_app.py
     │   ├── __init__.py
@@ -185,75 +195,80 @@ docker compose up --build
     │   │   ├── cleanup.py
     │   │   └── __init__.py
     │   └── temp.py
+    ├── utils
+    │   ├── __init__.py
+    │   └── pagination.py
     └── validation
         ├── __init__.py
         ├── profile_validators.py
         └── security_validators.py
-
 ```
 ---
 
 ### **Root Directory**
-- **`README.MD`**: Main project documentation.
-- **`poetry.lock`** & **`pyproject.toml`**: Poetry-based dependency management.
-- **`docker-compose.yml`**: Defines and manages multi-container Docker applications (FastAPI app, PostgreSQL, Redis, Celery, Mailhog).
-- **`Dockerfile`**: Builds the FastAPI application image with all dependencies and startup logic.
+- `README.MD`: Main project documentation.
+- `poetry.lock` & `pyproject.toml`: Poetry-based dependency management.
+- `docker-compose.yml`: Defines and manages multi-container Docker applications (FastAPI app, PostgreSQL, Redis, Celery, Mailhog).
+- `Dockerfile`: Builds the FastAPI application image with all dependencies and startup logic.
 
 
 ### **Source Directory (`src`)**
 
 #### **Configuration (`config`)**
-- **`config.py`**: Manages project settings, including database configurations and external service settings.
+- `config.py`: Manages project settings, including database configurations and external service settings.
 
 #### **Database (`database`)**
-- **`session.py`**: Initializes the SQLAlchemy session and engine.
-- **`utils.py`**: Contains utility functions for database operations.
-- **`models/`**: SQLAlchemy ORM models for Users, Groups, Tokens, etc.
-- **`migrations/`**: Alembic migration environment and revision files.
-  - **`env.py`**: Alembic environment configuration.
-  - **`versions/`**: Individual migration scripts.
+- `session.py`: Initializes the SQLAlchemy session and engine.
+- `utils.py`: Contains utility functions for database operations.
+- `models/`: SQLAlchemy ORM models for Users, Groups, Tokens, etc.
+- `migrations/`: Alembic migration environment and revision files.
+  - `env.py`: Alembic environment configuration.
+  - `versions/`: Individual migration scripts.
 
 #### **Dependencies (`dependencies`)**
-- **`auth.py`**: Authentication and User dependencies.
-- **`config.py`**: Project Configuration dependencies.
-- **`group.py`**: User groups dependencies.
+- `auth.py`: Authentication and User dependencies.
+- `config.py`: Project Configuration dependencies.
+- `group.py`: User groups dependencies.
 
 #### **Routes (`routes`)**
-- **`accounts.py`**: Endpoints for registration, login, password management, activation.
-- **`profiles.py`**: User profile-related routes.
-- **`administration.py`**: Admin-only endpoints (user/group management).
-- **`movies/`**: Movie depended endpoints.
-  -  **`genres.py`**: Genre endpoints.
-  -  **`movies.py`**: Movie endpoints.
-  -  **`stars.py`**: Star endpoints.
+- `accounts.py`: Endpoints for registration, login, password management, activation.
+- `profiles.py`: User profile-related routes.
+- `administration.py`: Admin-only endpoints (user/group management).
+- `movies/`: Movie depended endpoints.
+  -  `genres.py`: Genre endpoints.
+  -  `movies.py`: Movie endpoints.
+  -  `stars.py`: Star endpoints.
 
 #### **Schemas (`schemas`)**
-- **`_mixins.py`**: Mixins for all schemas to use.
-- **`accounts.py`**: Pydantic schemas for auth, login, activation, password reset, etc.
-- **`profiles.py`**: Schemas for profile details and updates.
-- **`administration.py`**: Schemas related to admin-level operations.
-- **`common.py`**: Common schemas used by every route type.
-- **`movies.py`**: Movie, genre, star & director schemas.
+- `_mixins.py`: Mixins for all schemas to use.
+- `accounts.py`: Pydantic schemas for auth, login, activation, password reset, etc.
+- `profiles.py`: Schemas for profile details and updates.
+- `administration.py`: Schemas related to admin-level operations.
+- `common.py`: Common schemas used by every route type.
+- `movies.py`: Movie, genre, star & director schemas.
 
 #### **Security (`security`)**
-- **`token_manager.py`**: Handles JWT token creation, decoding, validation.
-- **`password.py`**: Password hashing and verification logic.
+- `token_manager.py`: Handles JWT token creation, decoding, validation.
+- `password.py`: Password hashing and verification logic.
 
 #### **Services (`services`)**
-- **`email_service.py`**: Sends email messages (activation, password reset, etc.).
-- **`templates/emails/`**: HTML templates for various email types.
+- `email_service.py`: Sends email messages (activation, password reset, etc.).
+- `templates/emails/`: HTML templates for various email types.
 
 #### **Storage (`storage`)**
-- **`media/avatars/`**: Directory for storing uploaded user avatar images.
+- `media/avatars/`: Directory for storing uploaded user avatar images.
 
 #### **Tasks Manager (`tasks_manager`)**
-- **`celery_app.py`**: Celery application initialization.
-- **`tasks/`**: Celery task modules.
-  - **`cleanup.py`**: Periodically deletes expired tokens (activation/password reset).
+- `celery_app.py`: Celery application initialization.
+- `tasks/`: Celery task modules.
+  - `cleanup.py`: Periodically deletes expired tokens (activation/password reset).
 
 #### **Validation (`validation`)**
-- **`profile_validators.py`**: Custom Pydantic or manual validators for profile data.
-- **`security_validators.py`**: Password complexity rules and other auth-related checks.
+- `profile_validators.py`: Custom Pydantic or manual validators for profile data.
+- `security_validators.py`: Password complexity rules and other auth-related checks.
+
+#### **Utils (`utils`)**
+- `pagination.py`: Pagination link building.
 
 ## API Documentation
 
