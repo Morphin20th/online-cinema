@@ -55,6 +55,23 @@ def get_cart(
     return get_cart_with_items(db, current_user.id)
 
 
+@router.get(
+    "/{user_id}/", response_model=BaseCartSchema, dependencies=[Depends(admin_required)]
+)
+def get_specific_user_cart(
+    user_id: int, db: Session = Depends(get_db)
+) -> BaseCartSchema:
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with given ID was not found.",
+        )
+
+    return get_cart_with_items(db, user_id)
+
+
 @router.post("/add/", response_model=MessageResponseSchema)
 def add_movie_to_cart(
     data: AddMovieToCartRequestSchema,
@@ -152,18 +169,29 @@ def remove_movie_from_cart(
     return MessageResponseSchema(message="Movie removed from cart.")
 
 
-@router.get(
-    "/{user_id}/", response_model=BaseCartSchema, dependencies=[Depends(admin_required)]
-)
-def get_specific_user_cart(
-    user_id: int, db: Session = Depends(get_db)
-) -> BaseCartSchema:
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+@router.delete("/items/", response_model=MessageResponseSchema)
+def remove_all_movies_from_cart(
+    current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)
+) -> MessageResponseSchema:
+    cart = db.query(CartModel).filter_by(user_id=current_user.id).first()
 
-    if not user:
+    if not cart:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User with given ID was not found.",
+            detail="Cart not found.",
         )
 
-    return get_cart_with_items(db, user_id)
+    try:
+        for item in cart.cart_items:
+            if item.movie is None:
+                continue
+
+            db.delete(item)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while trying to remove movies from cart occurred.",
+        )
+    return MessageResponseSchema(message="All movies removed from cart.")
