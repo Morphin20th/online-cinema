@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
 from src.database import UserModel, CartModel, CartItemModel, MovieModel, PurchaseModel
-from src.dependencies import get_current_user
 from src.database.session import get_db
+from src.dependencies import get_current_user, admin_required
 from src.schemas.carts import (
     AddMovieToCartRequestSchema,
     BaseCartSchema,
@@ -19,15 +19,11 @@ from src.schemas.common import MessageResponseSchema
 router = APIRouter()
 
 
-@router.get("/", response_model=BaseCartSchema)
-def get_cart(
-    current_user: UserModel = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> BaseCartSchema:
+def get_cart_with_items(db: Session, user_id: int) -> BaseCartSchema:
     cart = (
         db.query(CartModel)
         .options(joinedload(CartModel.cart_items).joinedload(CartItemModel.movie))
-        .filter(CartModel.user_id == current_user.id)
+        .filter(CartModel.user_id == user_id)
         .first()
     )
 
@@ -49,6 +45,14 @@ def get_cart(
         )
 
     return BaseCartSchema(cart_items=cart_items_list)
+
+
+@router.get("/", response_model=BaseCartSchema)
+def get_cart(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BaseCartSchema:
+    return get_cart_with_items(db, current_user.id)
 
 
 @router.post("/add/", response_model=MessageResponseSchema)
@@ -146,3 +150,20 @@ def remove_movie_from_cart(
         )
 
     return MessageResponseSchema(message="Movie removed from cart.")
+
+
+@router.get(
+    "/{user_id}/", response_model=BaseCartSchema, dependencies=[Depends(admin_required)]
+)
+def get_specific_user_cart(
+    user_id: int, db: Session = Depends(get_db)
+) -> BaseCartSchema:
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with given ID was not found.",
+        )
+
+    return get_cart_with_items(db, user_id)
