@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,7 +26,7 @@ def get_cart(
 ) -> BaseCartSchema:
     cart = (
         db.query(CartModel)
-        .options(joinedload(CartModel.cart_items))
+        .options(joinedload(CartModel.cart_items).joinedload(CartItemModel.movie))
         .filter(CartModel.user_id == current_user.id)
         .first()
     )
@@ -32,11 +34,21 @@ def get_cart(
     if not cart:
         return BaseCartSchema(cart_items=[])
 
-    return BaseCartSchema(
-        cart_items=[
-            CartItemResponseSchema.model_validate(item) for item in cart.cart_items
-        ]
-    )
+    cart_items_list = []
+    for item in cart.cart_items:
+        if item.movie is None:
+            continue
+
+        cart_items_list.append(
+            CartItemResponseSchema(
+                movie_uuid=item.movie.uuid,
+                movie_name=item.movie.name,
+                cart_id=item.cart_id,
+                added_at=item.added_at,
+            )
+        )
+
+    return BaseCartSchema(cart_items=cart_items_list)
 
 
 @router.post("/add/", response_model=MessageResponseSchema)
@@ -91,3 +103,46 @@ def add_movie_to_cart(
             detail="Failed to add movie to cart.",
         )
     return MessageResponseSchema(message="Movie has been added to cart successfully.")
+
+
+@router.delete("/items/{movie_uuid}/", response_model=MessageResponseSchema)
+def remove_movie_from_cart(
+    movie_uuid: UUID,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponseSchema:
+    cart = db.query(CartModel).filter_by(user_id=current_user.id).first()
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cart not found.",
+        )
+
+    cart_item = (
+        db.query(CartItemModel)
+        .join(CartItemModel.movie)
+        .filter(
+            CartItemModel.cart_id == cart.id,
+            MovieModel.uuid == movie_uuid,
+        )
+        .first()
+    )
+
+    if not cart_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found in cart.",
+        )
+
+    try:
+        db.delete(cart_item)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while removing movie from cart occurred.",
+        )
+
+    return MessageResponseSchema(message="Movie removed from cart.")

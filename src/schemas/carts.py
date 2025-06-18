@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 # --- Base Model Schemas ---
 class BaseCartItemSchema(BaseModel):
-    movie_id: int
+    movie_uuid: UUID
     cart_id: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -24,4 +24,6 @@ class AddMovieToCartRequestSchema(BaseModel):
 
 # ---Responses---
 class CartItemResponseSchema(BaseCartItemSchema):
+    movie_name: str
     added_at: datetime
+
