@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
+from src.schemas.common import MessageResponseSchema
 from src.schemas.orders import BaseOrderSchema
 from src.database import (
     OrderItemModel,
@@ -151,3 +152,88 @@ def get_orders(
         total_pages=total_pages,
         total_items=total_items,
     )
+
+
+@router.post("/cancel/{order_id}/", response_model=MessageResponseSchema)
+def cancel_order(
+    order_id: int,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponseSchema:
+    order = (
+        db.query(OrderModel)
+        .filter_by(id=order_id, user_id=current_user.id)
+        .with_for_update()
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order with given ID was not found.",
+        )
+
+    if order.status != StatusEnum.PENDING:
+        if order.status == StatusEnum.PAID:
+            detail = "Paid orders cannot be cancelled. Please request a refund."
+        else:
+            detail = "Order is already cancelled."
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+    try:
+        order.status = StatusEnum.CANCELLED
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while trying to cancel the order occurred.",
+        )
+    return MessageResponseSchema(message="Order successfully cancelled.")
+
+
+# TODO: payment refund logic
+@router.post("/refund/{order_id}/", response_model=MessageResponseSchema)
+def refund_order(
+    order_id: int,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponseSchema:
+    order = (
+        db.query(OrderModel)
+        .filter_by(id=order_id, user_id=current_user.id)
+        .with_for_update()
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order with given ID was not found.",
+        )
+
+    if order.status != StatusEnum.PAID:
+        if order.status == StatusEnum.CANCELLED:
+            detail = "Cancelled orders cannot be refunded."
+        else:
+            detail = "Order is not paid."
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+    # refund logic
+
+    try:
+        order.status = StatusEnum.CANCELLED
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while trying to refund the order occurred.",
+        )
+    return MessageResponseSchema(message="Order successfully refunded.")
