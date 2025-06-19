@@ -17,6 +17,7 @@ from .models import (
     PurchaseModel,
     OrderModel,
     OrderItemModel,
+    StatusEnum
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "PurchaseModel",
     "OrderModel",
     "OrderItemModel",
+    "StatusEnum"
 ]

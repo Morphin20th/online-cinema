@@ -29,6 +29,8 @@ def get_cart_with_items(db: Session, user_id: int) -> BaseCartSchema:
 
     if not cart:
         return BaseCartSchema(cart_items=[])
+    if not cart.cart_items:
+        return BaseCartSchema(cart_items=[])
 
     cart_items_list = []
     for item in cart.cart_items:

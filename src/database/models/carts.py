@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import Integer, ForeignKey, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,7 +20,7 @@ class CartModel(Base):
     )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="cart")
-    cart_items: Mapped["CartItemModel"] = relationship(
+    cart_items: Mapped[List["CartItemModel"]] = relationship(
         "CartItemModel", back_populates="cart"
     )
 
