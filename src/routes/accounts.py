@@ -24,6 +24,7 @@ from src.database import (
     ActivationTokenModel,
     RefreshTokenModel,
     PasswordResetTokenModel,
+    CartModel,
 )
 from src.database.session import get_db
 from src.database.utils import generate_secure_token
@@ -74,17 +75,17 @@ def create_user(
             new_password=user_data.password,
             group_id=group.id,
         )
-        db.add(new_user)
-        db.flush()
-
         activation_token = ActivationTokenModel.create(
             user_id=new_user.id,
             token=generate_secure_token(),
             days=settings.ACTIVATION_TOKEN_LIFE,
         )
-        db.add(activation_token)
         new_user.activation_token = activation_token
 
+        new_cart = CartModel(user=new_user)
+
+        db.add_all([new_user, activation_token, new_cart])
+        db.flush()
         db.commit()
 
         db.refresh(activation_token)

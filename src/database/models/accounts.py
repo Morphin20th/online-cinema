@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import enum
 from datetime import datetime, timezone, date, timedelta
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from pydantic import EmailStr
 from sqlalchemy import (
@@ -20,6 +18,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database.models.base import Base
 from src.database.utils import generate_secure_token
 from src.security import hash_password, verify_password
+
+if TYPE_CHECKING:
+    from src.database.models.carts import CartModel
+    from src.database.models.purchases import PurchaseModel
 
 
 class UserGroupEnum(enum.Enum):
@@ -41,7 +43,7 @@ class UserGroupModel(Base):
         Enum(UserGroupEnum), nullable=False, unique=True
     )
 
-    users: Mapped[List[UserModel]] = relationship("UserModel", back_populates="group")
+    users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="group")
 
     def __repr__(self):
         return f"<UserGroupModel(id={self.id}, name={self.name})>"
@@ -76,14 +78,18 @@ class UserModel(Base):
     profile: Mapped["UserProfileModel"] = relationship(
         "UserProfileModel", back_populates="user", cascade="all, delete-orphan"
     )
-    activation_token: Mapped[ActivationTokenModel] = relationship(
+    activation_token: Mapped["ActivationTokenModel"] = relationship(
         "ActivationTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
-    password_reset_token: Mapped[PasswordResetTokenModel] = relationship(
+    password_reset_token: Mapped["PasswordResetTokenModel"] = relationship(
         "PasswordResetTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
-    refresh_tokens: Mapped[List[RefreshTokenModel]] = relationship(
+    refresh_tokens: Mapped[List["RefreshTokenModel"]] = relationship(
         "RefreshTokenModel", back_populates="user", cascade="all"
+    )
+    cart: Mapped["CartModel"] = relationship("CartModel", back_populates="user")
+    purchases: Mapped[List["PurchaseModel"]] = relationship(
+        "PurchaseModel", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self):
@@ -105,7 +111,7 @@ class UserModel(Base):
     @classmethod
     def create(
         cls, email: EmailStr, new_password: str, group_id: Mapped[int]
-    ) -> UserModel:
+    ) -> "UserModel":
         user = cls(email=email, group_id=group_id)
         user.password = new_password
         return user
@@ -162,7 +168,7 @@ class ActivationTokenModel(TokenBaseModel):
         return f"<ActivationTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
     @classmethod
-    def create(cls, user_id, token, days) -> ActivationTokenModel:
+    def create(cls, user_id, token, days) -> "ActivationTokenModel":
         expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         return cls(user_id=user_id, expires_at=expires_at, token=token)
 
@@ -195,6 +201,6 @@ class RefreshTokenModel(TokenBaseModel):
         return f"<RefreshTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
     @classmethod
-    def create(cls, user_id, token, days) -> RefreshTokenModel:
+    def create(cls, user_id, token, days) -> "RefreshTokenModel":
         expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         return cls(user_id=user_id, expires_at=expires_at, token=token)

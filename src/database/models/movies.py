@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import (
     String,
@@ -15,6 +16,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database.models.base import Base
+
+if TYPE_CHECKING:
+    from src.database.models.carts import CartItemModel
+    from src.database.models.purchases import PurchaseModel
 
 MoviesGenresTable = Table(
     "movies_genres",
@@ -167,6 +172,12 @@ class MovieModel(Base):
     )
     directors: Mapped[list[DirectorModel]] = relationship(
         DirectorModel, back_populates="movies", secondary=MoviesDirectorsTable
+    )
+    cart_items: Mapped[list["CartItemModel"]] = relationship(
+        "CartItemModel", back_populates="movie", cascade="all, delete-orphan"
+    )
+    purchases: Mapped[List["PurchaseModel"]] = relationship(
+        "PurchaseModel", back_populates="movie", cascade="all, delete-orphan"
     )
 
     __table_args__ = (

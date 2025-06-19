@@ -13,6 +13,8 @@ from src.database import (
     GenreModel,
     StarModel,
     DirectorModel,
+    CartItemModel,
+    PurchaseModel,
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
@@ -185,7 +187,6 @@ def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSch
     return MovieDetailSchema.model_validate(movie)
 
 
-# TODO: add purchase condition
 @router.delete(
     "/{movie_uuid}/",
     response_model=MessageResponseSchema,
@@ -202,8 +203,31 @@ def delete_movie(
             detail="Movie with the given ID was not found.",
         )
 
-    db.delete(movie)
-    db.commit()
+    in_cart = db.query(CartItemModel).filter_by(movie_id=movie.id).first()
+    if in_cart:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie is in users' carts and cannot be deleted.",
+        )
+
+    purchased_by_some_user = (
+        db.query(PurchaseModel).filter_by(movie_id=movie.id).first()
+    )
+    if purchased_by_some_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie purchased by some user and cannot be deleted.",
+        )
+
+    try:
+        db.delete(movie)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while removing movie occurred.",
+        )
 
     return MessageResponseSchema(message="Movie deleted successfully")
 
