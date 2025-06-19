@@ -15,13 +15,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.base import Base
-from src.database.utils import generate_secure_token
+from ..models.base import Base
+from src.utils import generate_secure_token
 from src.security import hash_password, verify_password
 
 if TYPE_CHECKING:
-    from src.database.models.carts import CartModel
-    from src.database.models.purchases import PurchaseModel
+    from ..models.carts import CartModel
+    from ..models.purchases import PurchaseModel
+    from ..models.orders import OrderModel
 
 
 class UserGroupEnum(enum.Enum):
@@ -74,7 +75,9 @@ class UserModel(Base):
         ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=False
     )
 
-    group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
+    group: Mapped["UserGroupModel"] = relationship(
+        "UserGroupModel", back_populates="users"
+    )
     profile: Mapped["UserProfileModel"] = relationship(
         "UserProfileModel", back_populates="user", cascade="all, delete-orphan"
     )
@@ -90,6 +93,9 @@ class UserModel(Base):
     cart: Mapped["CartModel"] = relationship("CartModel", back_populates="user")
     purchases: Mapped[List["PurchaseModel"]] = relationship(
         "PurchaseModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    orders: Mapped[List["OrderModel"]] = relationship(
+        "OrderModel", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self):
@@ -127,11 +133,11 @@ class UserProfileModel(Base):
     gender: Mapped[GenderEnum | None] = mapped_column(Enum(GenderEnum))
     date_of_birth: Mapped[date | None] = mapped_column(Date)
     info: Mapped[str | None] = mapped_column(Text)
-
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    user: Mapped[UserModel] = relationship("UserModel", back_populates="profile")
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="profile")
 
     def __repr__(self):
         return (
@@ -160,7 +166,9 @@ class TokenBaseModel(Base):
 class ActivationTokenModel(TokenBaseModel):
     __tablename__ = "activation_tokens"
 
-    user: Mapped[UserModel] = relationship(UserModel, back_populates="activation_token")
+    user: Mapped["UserModel"] = relationship(
+        "UserModel", back_populates="activation_token"
+    )
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
@@ -176,8 +184,8 @@ class ActivationTokenModel(TokenBaseModel):
 class PasswordResetTokenModel(TokenBaseModel):
     __tablename__ = "password_reset_tokens"
 
-    user: Mapped[UserModel] = relationship(
-        UserModel, back_populates="password_reset_token"
+    user: Mapped["UserModel"] = relationship(
+        "UserModel", back_populates="password_reset_token"
     )
 
     __table_args__ = (UniqueConstraint("user_id"),)
@@ -193,7 +201,9 @@ class RefreshTokenModel(TokenBaseModel):
         String(512), unique=True, nullable=False, default=generate_secure_token
     )
 
-    user: Mapped[UserModel] = relationship(UserModel, back_populates="refresh_tokens")
+    user: Mapped["UserModel"] = relationship(
+        "UserModel", back_populates="refresh_tokens"
+    )
 
     __table_args__ = (UniqueConstraint("user_id"),)
 

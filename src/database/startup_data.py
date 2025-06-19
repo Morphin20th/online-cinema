@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.database.models.accounts import UserGroupModel, UserGroupEnum
+from ..models.accounts import UserGroupModel, UserGroupEnum
 from src.database.session import PostgreSQLSessionLocal
 
 

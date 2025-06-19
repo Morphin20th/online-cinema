@@ -8,6 +8,9 @@ from src.config.config import Settings
 from src.database.models.base import Base
 from src.database.models import accounts  # noqa
 from src.database.models import movies  # noqa
+from src.database.models import carts  # noqa
+from src.database.models import orders  # noqa
+from src.database.models import purchases  # noqa
 
 config = context.config
 

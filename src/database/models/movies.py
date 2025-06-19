@@ -15,11 +15,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.base import Base
+from ..models.base import Base
 
 if TYPE_CHECKING:
-    from src.database.models.carts import CartItemModel
-    from src.database.models.purchases import PurchaseModel
+    from ..models.carts import CartItemModel
+    from ..models.purchases import PurchaseModel
+    from ..models.orders import OrderItemModel
 
 MoviesGenresTable = Table(
     "movies_genres",
@@ -161,23 +162,26 @@ class MovieModel(Base):
         Integer, ForeignKey("certifications.id"), nullable=False
     )
 
-    certification: Mapped[CertificationModel] = relationship(
-        CertificationModel, back_populates="movies"
+    certification: Mapped["CertificationModel"] = relationship(
+        "CertificationModel", back_populates="movies"
     )
-    stars: Mapped[list[StarModel]] = relationship(
-        StarModel, back_populates="movies", secondary=MoviesStarsTable
+    stars: Mapped[list["StarModel"]] = relationship(
+        "StarModel", back_populates="movies", secondary=MoviesStarsTable
     )
-    genres: Mapped[list[GenreModel]] = relationship(
-        GenreModel, back_populates="movies", secondary=MoviesGenresTable
+    genres: Mapped[list["GenreModel"]] = relationship(
+        "GenreModel", back_populates="movies", secondary=MoviesGenresTable
     )
-    directors: Mapped[list[DirectorModel]] = relationship(
-        DirectorModel, back_populates="movies", secondary=MoviesDirectorsTable
+    directors: Mapped[list["DirectorModel"]] = relationship(
+        "DirectorModel", back_populates="movies", secondary=MoviesDirectorsTable
     )
     cart_items: Mapped[list["CartItemModel"]] = relationship(
         "CartItemModel", back_populates="movie", cascade="all, delete-orphan"
     )
     purchases: Mapped[List["PurchaseModel"]] = relationship(
         "PurchaseModel", back_populates="movie", cascade="all, delete-orphan"
+    )
+    order_items: Mapped[List["OrderItemModel"]] = relationship(
+        "OrderItemModel", back_populates="movie", cascade="all, delete-orphan"
     )
 
     __table_args__ = (

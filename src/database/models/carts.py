@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Integer, ForeignKey, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.base import Base
+from ..models.base import Base
 
 if TYPE_CHECKING:
-    from src.database.models.movies import MovieModel
-    from src.database.models.accounts import UserModel
+    from ..models.movies import MovieModel
+    from ..models.accounts import UserModel
 
 
 class CartModel(Base):
@@ -20,7 +20,9 @@ class CartModel(Base):
     )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="cart")
-    cart_items = relationship("CartItemModel", back_populates="cart")
+    cart_items: Mapped["CartItemModel"] = relationship(
+        "CartItemModel", back_populates="cart"
+    )
 
     def __repr__(self) -> str:
         return f"<Cart(id={self.id}, user_id={self.user_id})>"
@@ -40,7 +42,7 @@ class CartItemModel(Base):
         Integer, ForeignKey("movies.id", ondelete="CASCADE"), nullable=False
     )
 
-    cart: Mapped[CartModel] = relationship(CartModel, back_populates="cart_items")
+    cart: Mapped["CartModel"] = relationship("CartModel", back_populates="cart_items")
     movie: Mapped["MovieModel"] = relationship(
         "MovieModel", back_populates="cart_items"
     )
