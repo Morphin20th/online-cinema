@@ -137,12 +137,14 @@ docker compose up --build
     │   │   ├── env.py
     │   │   ├── script.py.mako
     │   │   └── versions
-    │   │       └── c8b5250556b0_init.py
+    │   │       └── 069b6514057e_init_models.py
     │   ├── models
     │   │   ├── accounts.py
     │   │   ├── base.py
+    │   │   ├── carts.py
     │   │   ├── __init__.py
-    │   │   └── movies.py
+    │   │   ├── movies.py
+    │   │   └── purchases.py
     │   ├── session.py
     │   ├── startup_data.py
     │   └── utils.py
@@ -156,6 +158,7 @@ docker compose up --build
     ├── routes
     │   ├── accounts.py
     │   ├── administration.py
+    │   ├── carts.py
     │   ├── __init__.py
     │   ├── movies
     │   │   ├── genres.py
@@ -166,6 +169,7 @@ docker compose up --build
     ├── schemas
     │   ├── accounts.py
     │   ├── administration.py
+    │   ├── carts.py
     │   ├── common.py
     │   ├── __init__.py
     │   ├── _mixins.py
@@ -220,7 +224,7 @@ docker compose up --build
 #### **Database (`database`)**
 - `session.py`: Initializes the SQLAlchemy session and engine.
 - `utils.py`: Contains utility functions for database operations.
-- `models/`: SQLAlchemy ORM models for Users, Groups, Tokens, etc.
+- `models/`: SQLAlchemy ORM models for Users, Movies, Carts, etc.
 - `migrations/`: Alembic migration environment and revision files.
   - `env.py`: Alembic environment configuration.
   - `versions/`: Individual migration scripts.
@@ -234,6 +238,7 @@ docker compose up --build
 - `accounts.py`: Endpoints for registration, login, password management, activation.
 - `profiles.py`: User profile-related routes.
 - `administration.py`: Admin-only endpoints (user/group management).
+- `carts.py`: Cart-related endpoints.
 - `movies/`: Movie depended endpoints.
   -  `genres.py`: Genre endpoints.
   -  `movies.py`: Movie endpoints.
@@ -245,7 +250,8 @@ docker compose up --build
 - `profiles.py`: Schemas for profile details and updates.
 - `administration.py`: Schemas related to admin-level operations.
 - `common.py`: Common schemas used by every route type.
-- `movies.py`: Movie, genre, star & director schemas.
+- `movies.py`: Movie, genre, star and director schemas.
+- `carts.py`: Carts schemas
 
 #### **Security (`security`)**
 - `token_manager.py`: Handles JWT token creation, decoding, validation.
