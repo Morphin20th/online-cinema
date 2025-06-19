@@ -47,6 +47,10 @@ class OrderModel(Base):
             f"created_at={self.created_at}, user_id={self.user_id})>"
         )
 
+    @property
+    def total(self) -> Decimal:
+        return sum(item.movie.price for item in self.order_items if item.movie)
+
 
 class OrderItemModel(Base):
     __tablename__ = "order_items"

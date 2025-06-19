@@ -5,18 +5,29 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from src.schemas.common import BaseListSchema
 
+
+# --- Base Model Schemas ---
 class MovieSchema(BaseModel):
     uuid: UUID
     name: str
     price: Decimal
 
 
-class CreateOrderResponseSchema(BaseModel):
+class BaseOrderSchema(BaseModel):
     id: int
     status: str
     total_amount: Decimal
     created_at: datetime
-    movies: List[MovieSchema]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Responses ---
+class CreateOrderResponseSchema(BaseOrderSchema):
+    movies: List[MovieSchema]
+
+
+class OrderListSchema(BaseListSchema):
+    orders: List[BaseOrderSchema]

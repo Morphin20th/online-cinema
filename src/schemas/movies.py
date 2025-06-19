@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
+from src.schemas.common import BaseListSchema
 from src.schemas._mixins import YearMixin
 
 
@@ -100,15 +101,6 @@ class MovieDetailSchema(BaseMovieSchema):
     genres: List[GenreSchema]
     directors: List[DirectorSchema]
     stars: List[StarSchema]
-
-
-class BaseListSchema(BaseModel):
-    prev_page: str
-    next_page: str
-    total_pages: int
-    total_items: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class MovieListResponseSchema(BaseListSchema):
