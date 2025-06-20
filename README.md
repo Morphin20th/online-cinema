@@ -137,17 +137,19 @@ docker compose up --build
     │   │   ├── env.py
     │   │   ├── script.py.mako
     │   │   └── versions
-    │   │       └── 069b6514057e_init_models.py
+    │   │       ├── 069b6514057e_init_models.py
+    │   │       ├── 34fd63966446_init_order_models.py
+    │   │       └── 829110659a81_init_order_models.py
     │   ├── models
     │   │   ├── accounts.py
     │   │   ├── base.py
     │   │   ├── carts.py
     │   │   ├── __init__.py
     │   │   ├── movies.py
+    │   │   ├── orders.py
     │   │   └── purchases.py
     │   ├── session.py
-    │   ├── startup_data.py
-    │   └── utils.py
+    │   └── startup_data.py
     ├── dependencies
     │   ├── auth.py
     │   ├── config.py
@@ -165,6 +167,7 @@ docker compose up --build
     │   │   ├── __init__.py
     │   │   ├── movies.py
     │   │   └── stars.py
+    │   ├── orders.py
     │   └── profiles.py
     ├── schemas
     │   ├── accounts.py
@@ -174,6 +177,7 @@ docker compose up --build
     │   ├── __init__.py
     │   ├── _mixins.py
     │   ├── movies.py
+    │   ├── orders.py
     │   └── profiles.py
     ├── security
     │   ├── __init__.py
@@ -201,7 +205,8 @@ docker compose up --build
     │   └── temp.py
     ├── utils
     │   ├── __init__.py
-    │   └── pagination.py
+    │   ├── pagination.py
+    │   └── token_generation.py
     └── validation
         ├── __init__.py
         ├── profile_validators.py
@@ -223,7 +228,6 @@ docker compose up --build
 
 #### **Database (`database`)**
 - `session.py`: Initializes the SQLAlchemy session and engine.
-- `utils.py`: Contains utility functions for database operations.
 - `models/`: SQLAlchemy ORM models for Users, Movies, Carts, etc.
 - `migrations/`: Alembic migration environment and revision files.
   - `env.py`: Alembic environment configuration.
@@ -239,6 +243,7 @@ docker compose up --build
 - `profiles.py`: User profile-related routes.
 - `administration.py`: Admin-only endpoints (user/group management).
 - `carts.py`: Cart-related endpoints.
+- `orders.py`: Order-related endpoints.
 - `movies/`: Movie depended endpoints.
   -  `genres.py`: Genre endpoints.
   -  `movies.py`: Movie endpoints.
@@ -251,7 +256,8 @@ docker compose up --build
 - `administration.py`: Schemas related to admin-level operations.
 - `common.py`: Common schemas used by every route type.
 - `movies.py`: Movie, genre, star and director schemas.
-- `carts.py`: Carts schemas
+- `carts.py`: Carts schemas.
+- `orders.py`: Order schemas.
 
 #### **Security (`security`)**
 - `token_manager.py`: Handles JWT token creation, decoding, validation.
@@ -275,10 +281,10 @@ docker compose up --build
 
 #### **Utils (`utils`)**
 - `pagination.py`: Pagination link building.
+- `token_generation.py`: Secure token generation.
 
 ## API Documentation
 
 > localhost:8001/docs/
 
 ---
-

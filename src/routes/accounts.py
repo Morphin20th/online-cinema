@@ -9,14 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from src.schemas.common import MessageResponseSchema
 from src.config import BaseAppSettings
-from src.dependencies import (
-    get_jwt_auth_manager,
-    get_settings,
-    get_email_sender,
-    get_redis_client,
-)
 from src.database import (
     UserModel,
     UserGroupModel,
@@ -27,7 +20,13 @@ from src.database import (
     CartModel,
 )
 from src.database.session import get_db
-from src.database.utils import generate_secure_token
+from src.dependencies import (
+    get_jwt_auth_manager,
+    get_settings,
+    get_email_sender,
+    get_redis_client,
+)
+from src.dependencies import get_token, get_current_user
 from src.schemas.accounts import (
     UserRegistrationResponseSchema,
     UserRegistrationRequestSchema,
@@ -41,15 +40,16 @@ from src.schemas.accounts import (
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
 )
-from src.dependencies import get_token, get_current_user
+from src.schemas.common import MessageResponseSchema
 from src.security.token_manager import JWTManager
 from src.services import EmailSender
+from src.utils import generate_secure_token
 
 router = APIRouter()
 
 
 def get_user_by_email(email, db: Session) -> Optional[UserModel]:
-    return db.query(UserModel).filter(UserModel.email.ilike(email)).first()
+    return db.query(UserModel).filter(UserModel.email.ilike(f"%{email}%")).first()
 
 
 @router.post("/register/", response_model=UserRegistrationResponseSchema)

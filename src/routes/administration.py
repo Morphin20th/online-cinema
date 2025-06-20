@@ -1,14 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import EmailStr
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-from starlette import status
+from datetime import datetime, timedelta
+from typing import Optional
 
-from src.database import UserModel, ActivationTokenModel
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from pydantic import EmailStr
+from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, joinedload
+from starlette import status as http_status
+
+from src.database import (
+    UserModel,
+    ActivationTokenModel,
+    OrderModel,
+    OrderItemModel,
+    StatusEnum,
+)
 from src.database.session import get_db
-from src.schemas.common import MessageResponseSchema
-from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
 from src.dependencies import admin_required
+from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
+from src.schemas.common import MessageResponseSchema
+from src.schemas.orders import AdminOrderListSchema, AdminOrderSchema
+from src.utils import build_pagination_links
 
 router = APIRouter()
 
@@ -30,7 +42,7 @@ def admin_activate_user(
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
     if user.is_active:
@@ -45,7 +57,7 @@ def admin_activate_user(
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error activating user account",
         )
 
@@ -62,12 +74,12 @@ def change_user_group(
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
     if user.id == current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Prevent changing the group of a user with the same ID as you.",
         )
 
@@ -78,7 +90,7 @@ def change_user_group(
 
     if data.group_id not in [1, 2, 3]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid group ID"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Invalid group ID"
         )
 
     try:
@@ -88,9 +100,105 @@ def change_user_group(
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong.",
         )
     return MessageResponseSchema(
         message=f"User group successfully changed to {data.group_id}."
+    )
+
+
+@router.get(
+    "/orders/",
+    response_model=AdminOrderListSchema,
+    dependencies=[Depends(admin_required)],
+)
+def get_orders(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-based index)"),
+    per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
+    db: Session = Depends(get_db),
+    user_id: Optional[int] = Query(None, description="Filter by user id"),
+    email: Optional[str] = Query(None, description="Filter by user email"),
+    created_at: Optional[str] = Query(
+        None, description="Filter by order date (YYYY-MM-DD)"
+    ),
+    status: Optional[str] = Query(None, description="Filter by order status"),
+):
+    offset = (page - 1) * per_page
+    filters = []
+
+    if user_id:
+        filters.append(OrderModel.user_id == user_id)
+
+    if created_at:
+        try:
+            filter_date = datetime.strptime(created_at, "%Y-%m-%d").date()
+            filters.append(
+                OrderModel.created_at >= filter_date,
+            )
+            filters.append(
+                OrderModel.created_at < filter_date + timedelta(days=1),
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date format. Use YYYY-MM-DD",
+            )
+
+    if status:
+        try:
+            status_enum = StatusEnum(status.lower())
+            filters.append(OrderModel.status == status_enum)
+        except ValueError:
+            allowed_values = [e.value for e in StatusEnum]
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status value. Allowed values: {allowed_values}",
+            )
+
+    if email:
+        filters.append(UserModel.email.ilike(f"%{email}%"))
+
+    query = (
+        db.query(OrderModel)
+        .join(UserModel)
+        .options(
+            joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie),
+            joinedload(OrderModel.user),
+        )
+        .filter(*filters)
+    )
+
+    total_items = query.count()
+
+    orders = query.offset(offset).limit(per_page).all()
+
+    for order in orders:
+        if order.total_amount is None:
+            order.total_amount = order.total
+            db.add(order)
+    db.commit()
+
+    total_pages = (total_items + per_page - 1) // per_page
+    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+
+    orders_list = [
+        AdminOrderSchema(
+            user_id=order.user_id,
+            email=order.user.email,
+            id=order.id,
+            status=order.status,
+            total_amount=order.total_amount,
+            created_at=order.created_at,
+        )
+        for order in orders
+    ]
+
+    return AdminOrderListSchema(
+        orders=orders_list,
+        prev_page=prev_page,
+        next_page=next_page,
+        total_pages=total_pages,
+        total_items=total_items,
     )

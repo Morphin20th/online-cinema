@@ -1,15 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, DateTime, func, UniqueConstraint, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.base import Base
-
-from typing import TYPE_CHECKING
+from ..models.base import Base
 
 if TYPE_CHECKING:
-    from src.database.models.accounts import UserModel
-    from src.database.models.movies import MovieModel
+    from ..models.accounts import UserModel
+    from ..models.movies import MovieModel
 
 
 class PurchaseModel(Base):

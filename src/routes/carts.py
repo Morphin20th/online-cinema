@@ -6,7 +6,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.database import UserModel, CartModel, CartItemModel, MovieModel, PurchaseModel
+from src.database import (
+    UserModel,
+    CartModel,
+    CartItemModel,
+    MovieModel,
+    PurchaseModel,
+    OrderModel,
+    StatusEnum,
+    OrderItemModel,
+)
 from src.database.session import get_db
 from src.dependencies import get_current_user, admin_required
 from src.schemas.carts import (
@@ -28,6 +37,8 @@ def get_cart_with_items(db: Session, user_id: int) -> BaseCartSchema:
     )
 
     if not cart:
+        return BaseCartSchema(cart_items=[])
+    if not cart.cart_items:
         return BaseCartSchema(cart_items=[])
 
     cart_items_list = []
@@ -102,6 +113,22 @@ def add_movie_to_cart(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Movie already purchased.",
+        )
+
+    pending_status = (
+        db.query(OrderModel)
+        .join(OrderItemModel)
+        .filter(
+            OrderModel.user_id == current_user.id,
+            OrderModel.status == StatusEnum.PENDING,
+            OrderItemModel.movie_id == movie.id,
+        )
+        .first()
+    )
+    if pending_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie is currently in the order in the pending status.",
         )
 
     exists_in_cart = (
