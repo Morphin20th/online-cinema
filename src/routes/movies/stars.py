@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.params import Query
-from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
@@ -126,16 +125,17 @@ def get_stars(
     db: Session = Depends(get_db),
 ) -> StarListResponseSchema:
     offset = (page - 1) * per_page
-    total_items = db.scalar(select(func.count()).select_from(StarModel))
 
-    stars_query = select(StarModel).offset(offset).limit(per_page)
-    stars = db.scalars(stars_query).all()
+    stars_query = db.query(StarModel)
+    total_items = stars_query.count()
+
+    stars = stars_query.offset(offset).limit(per_page).all()
+
     total_pages = (total_items + per_page - 1) // per_page
     prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
 
-    stars_list = []
-    for star in stars:
-        stars_list.append(StarSchema(id=star.id, name=star.name))
+    stars_list = [StarSchema(id=star.id, name=star.name) for star in stars]
+
     return StarListResponseSchema(
         stars=stars_list,
         prev_page=prev_page,

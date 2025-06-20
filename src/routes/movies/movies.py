@@ -349,7 +349,6 @@ def get_movies(
     sort: Optional[str] = Query(None, description="e.g. `-imdb,year`"),
 ) -> MovieListResponseSchema:
     offset = (page - 1) * per_page
-
     filters = []
 
     if year:
@@ -366,9 +365,8 @@ def get_movies(
             MovieModel.certification.has(CertificationModel.name.ilike(certification))
         )
 
-    total_items = db.scalar(
-        select(func.count()).select_from(MovieModel).where(*filters)
-    )
+    movies_query = db.query(MovieModel).filter(*filters)
+    total_items = movies_query.count()
 
     if total_items == 0:
         return MovieListResponseSchema(
@@ -377,14 +375,7 @@ def get_movies(
 
     sortings = parse_sort_params(sort)
 
-    movies_query = (
-        select(MovieModel)
-        .where(*filters)
-        .offset(offset)
-        .order_by(*sortings)
-        .limit(per_page)
-    )
-    movies = db.scalars(movies_query).all()
+    movies = movies_query.order_by(*sortings).offset(offset).limit(per_page).all()
     total_pages = (total_items + per_page - 1) // per_page
     prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
 

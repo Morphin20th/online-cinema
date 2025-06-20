@@ -121,26 +121,14 @@ def get_orders(
 ) -> OrderListSchema:
     offset = (page - 1) * per_page
 
-    total_items = db.scalar(
-        select(func.count())
-        .select_from(OrderModel)
-        .where(OrderModel.user_id == current_user.id)
-    )
-
-    orders = (
+    query = (
         db.query(OrderModel)
         .filter(OrderModel.user_id == current_user.id)
-        .offset(offset)
-        .limit(per_page)
         .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
-        .all()
     )
 
-    for order in orders:
-        if order.total_amount is None:
-            order.total_amount = order.total
-            db.add(order)
-    db.commit()
+    total_items = query.count()
+    orders = query.offset(offset).limit(per_page).all()
 
     total_pages = (total_items + per_page - 1) // per_page
     prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)

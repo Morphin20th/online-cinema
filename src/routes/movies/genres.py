@@ -100,21 +100,12 @@ def get_movies_by_genre(
 
     offset = (page - 1) * per_page
 
-    total_items = db.scalar(
-        select(func.count(MovieModel.id))
-        .join(MovieModel.genres)
-        .where(GenreModel.id == genre_id)
-    )
-
     movies_query = (
-        select(MovieModel)
-        .join(MovieModel.genres)
-        .where(GenreModel.id == genre_id)
-        .offset(offset)
-        .limit(per_page)
+        db.query(MovieModel).join(MovieModel.genres).filter(GenreModel.id == genre_id)
     )
+    total_items = movies_query.count()
+    movies = movies_query.offset(offset).limit(per_page).all()
 
-    movies = db.scalars(movies_query).all()
     total_pages = (total_items + per_page - 1) // per_page
     prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
 
@@ -157,10 +148,10 @@ def get_genres(
     db: Session = Depends(get_db),
 ):
     offset = (page - 1) * per_page
-    total_items = db.scalar(select(func.count()).select_from(GenreModel))
+    genres_query = db.query(GenreModel)
+    total_items = genres_query.count()
 
-    genres_query = select(GenreModel).offset(offset).limit(per_page)
-    genres = db.scalars(genres_query).all()
+    genres = genres_query.offset(offset).limit(per_page).all()
     total_pages = (total_items + per_page - 1) // per_page
     prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
 

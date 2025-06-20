@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from src.schemas._mixins import EmailMixin
 from src.schemas.common import BaseListSchema
 
 
@@ -31,3 +32,11 @@ class CreateOrderResponseSchema(BaseOrderSchema):
 
 class OrderListSchema(BaseListSchema):
     orders: List[BaseOrderSchema]
+
+
+class AdminOrderSchema(EmailMixin, BaseOrderSchema):
+    user_id: int
+
+
+class AdminOrderListSchema(BaseListSchema):
+    orders: List[AdminOrderSchema]

@@ -49,7 +49,7 @@ router = APIRouter()
 
 
 def get_user_by_email(email, db: Session) -> Optional[UserModel]:
-    return db.query(UserModel).filter(UserModel.email.ilike(email)).first()
+    return db.query(UserModel).filter(UserModel.email.ilike(f"%{email}%")).first()
 
 
 @router.post("/register/", response_model=UserRegistrationResponseSchema)
