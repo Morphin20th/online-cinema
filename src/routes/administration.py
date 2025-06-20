@@ -13,7 +13,7 @@ from src.database import (
     ActivationTokenModel,
     OrderModel,
     OrderItemModel,
-    StatusEnum,
+    OrderStatusEnum,
 )
 from src.database.session import get_db
 from src.dependencies import admin_required
@@ -148,10 +148,10 @@ def get_orders(
 
     if status:
         try:
-            status_enum = StatusEnum(status.lower())
+            status_enum = OrderStatusEnum(status.lower())
             filters.append(OrderModel.status == status_enum)
         except ValueError:
-            allowed_values = [e.value for e in StatusEnum]
+            allowed_values = [e.value for e in OrderStatusEnum]
             raise HTTPException(
                 status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status value. Allowed values: {allowed_values}",

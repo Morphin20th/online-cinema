@@ -12,9 +12,10 @@ from ..models.base import Base
 if TYPE_CHECKING:
     from ..models.accounts import UserModel
     from ..models.movies import MovieModel
+    from ..models.payments import PaymentModel, PaymentItemModel
 
 
-class StatusEnum(enum.Enum):
+class OrderStatusEnum(enum.Enum):
     PENDING = "pending"
     PAID = "paid"
     CANCELLED = "cancelled"
@@ -31,14 +32,17 @@ class OrderModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    status: Mapped[StatusEnum] = mapped_column(
-        Enum(StatusEnum), nullable=False, default=StatusEnum.PENDING
+    status: Mapped[OrderStatusEnum] = mapped_column(
+        Enum(OrderStatusEnum), nullable=False, default=OrderStatusEnum.PENDING
     )
     total_amount: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), nullable=True)
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="orders")
     order_items: Mapped[List["OrderItemModel"]] = relationship(
         "OrderItemModel", back_populates="order"
+    )
+    payments: Mapped[List["PaymentModel"]] = relationship(
+        "PaymentModel", back_populates="order"
     )
 
     def __repr__(self) -> str:
@@ -68,6 +72,9 @@ class OrderItemModel(Base):
     )
     movie: Mapped["MovieModel"] = relationship(
         "MovieModel", back_populates="order_items"
+    )
+    payment_items: Mapped[List["PaymentItemModel"]] = relationship(
+        "PaymentItemModel", back_populates="order_item"
     )
 
     def __repr__(self) -> str:

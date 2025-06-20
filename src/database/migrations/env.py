@@ -11,6 +11,7 @@ from src.database.models import movies  # noqa
 from src.database.models import carts  # noqa
 from src.database.models import orders  # noqa
 from src.database.models import purchases  # noqa
+from src.database.models import payments  # noqa
 
 config = context.config
 

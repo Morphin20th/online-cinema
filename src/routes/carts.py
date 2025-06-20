@@ -13,7 +13,7 @@ from src.database import (
     MovieModel,
     PurchaseModel,
     OrderModel,
-    StatusEnum,
+    OrderStatusEnum,
     OrderItemModel,
 )
 from src.database.session import get_db
@@ -120,7 +120,7 @@ def add_movie_to_cart(
         .join(OrderItemModel)
         .filter(
             OrderModel.user_id == current_user.id,
-            OrderModel.status == StatusEnum.PENDING,
+            OrderModel.status == OrderStatusEnum.PENDING,
             OrderItemModel.movie_id == movie.id,
         )
         .first()

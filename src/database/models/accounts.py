@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ..models.carts import CartModel
     from ..models.purchases import PurchaseModel
     from ..models.orders import OrderModel
+    from ..models.payments import PaymentModel
 
 
 class UserGroupEnum(enum.Enum):
@@ -96,6 +97,9 @@ class UserModel(Base):
     )
     orders: Mapped[List["OrderModel"]] = relationship(
         "OrderModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    payments: Mapped[List["PaymentModel"]] = relationship(
+        "PaymentModel", back_populates="user"
     )
 
     def __repr__(self):

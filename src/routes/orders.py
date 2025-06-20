@@ -9,7 +9,7 @@ from src.schemas.orders import BaseOrderSchema
 from src.database import (
     OrderItemModel,
     OrderModel,
-    StatusEnum,
+    OrderStatusEnum,
     MovieModel,
     CartItemModel,
     UserModel,
@@ -64,7 +64,7 @@ def create_order(
     try:
         new_order = OrderModel(
             user_id=current_user.id,
-            status=StatusEnum.PENDING,
+            status=OrderStatusEnum.PENDING,
             order_items=[
                 OrderItemModel(movie_id=item.movie_id) for item in cart.cart_items
             ],
@@ -161,8 +161,8 @@ def cancel_order(
             detail="Order with given ID was not found.",
         )
 
-    if order.status != StatusEnum.PENDING:
-        if order.status == StatusEnum.PAID:
+    if order.status != OrderStatusEnum.PENDING:
+        if order.status == OrderStatusEnum.PAID:
             detail = "Paid orders cannot be cancelled. Please request a refund."
         else:
             detail = "Order is already cancelled."
@@ -172,7 +172,7 @@ def cancel_order(
         )
 
     try:
-        order.status = StatusEnum.CANCELLED
+        order.status = OrderStatusEnum.CANCELLED
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -203,8 +203,8 @@ def refund_order(
             detail="Order with given ID was not found.",
         )
 
-    if order.status != StatusEnum.PAID:
-        if order.status == StatusEnum.CANCELLED:
+    if order.status != OrderStatusEnum.PAID:
+        if order.status == OrderStatusEnum.CANCELLED:
             detail = "Cancelled orders cannot be refunded."
         else:
             detail = "Order is not paid."
@@ -216,7 +216,7 @@ def refund_order(
     # refund logic
 
     try:
-        order.status = StatusEnum.CANCELLED
+        order.status = OrderStatusEnum.CANCELLED
         db.commit()
     except SQLAlchemyError:
         db.rollback()
