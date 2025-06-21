@@ -1,7 +1,7 @@
 from fastapi import Depends
 from redis import Redis
 
-from src.services import EmailSender
+from src.services import EmailSender, StripeService
 from src.config import Settings
 
 
@@ -26,4 +26,12 @@ def get_redis_client(settings: Settings = Depends(get_settings)) -> Redis:
         port=settings.REDIS_PORT,
         db=settings.REDIS_DB,
         decode_responses=True,
+    )
+
+
+def get_stripe_service(settings: Settings = Depends(get_settings)) -> StripeService:
+    return StripeService(
+        api_key=settings.STRIPE_SECRET_KEY,
+        webhook_key=settings.STRIPE_WEBHOOK_SECRET,
+        app_url=settings.APP_URL,
     )
