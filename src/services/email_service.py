@@ -5,7 +5,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
-from pydantic import EmailStr
+from pydantic import EmailStr, AnyUrl
 
 
 class EmailSendingError(Exception):
@@ -19,7 +19,7 @@ class EmailSender:
         email_port: int,
         email_host_user: str,
         from_email: str,
-        app_url: str,
+        app_url: AnyUrl,
         project_root: Path,
     ):
         self._email_host = email_host

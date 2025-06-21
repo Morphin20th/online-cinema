@@ -27,6 +27,7 @@ celery = "^5.5.3"
 redis = "^6.2.0"
 python-multipart = "^0.0.20"
 pillow = "^11.2.1"
+stripe = "^12.2.0"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.1"

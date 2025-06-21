@@ -3,13 +3,19 @@ from typing import Optional
 
 import jwt
 from fastapi import HTTPException
+from pydantic import SecretStr
 from starlette import status
 
 
 class JWTManager:
-    def __init__(self, secret_key_access: str, secret_key_refresh: str, algorithm: str):
-        self._secret_key_access = secret_key_access
-        self._secret_key_refresh = secret_key_refresh
+    def __init__(
+        self,
+        secret_key_access: SecretStr,
+        secret_key_refresh: SecretStr,
+        algorithm: str,
+    ):
+        self._secret_key_access = secret_key_access.get_secret_value()
+        self._secret_key_refresh = secret_key_refresh.get_secret_value()
         self._algorithm = algorithm
 
     @property
