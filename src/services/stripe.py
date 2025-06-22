@@ -1,6 +1,7 @@
 import stripe
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import AnyUrl
+from sqlalchemy.orm import Session
 from starlette import status
 
 from src.database.models.orders import OrderModel
@@ -42,9 +43,28 @@ class StripeService:
             payment_method_types=["card"],
             line_items=line_items,
             mode="payment",
-            success_url=f"{self.app_url}/payments/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{self.app_url}/payments/cancel",
+            success_url=f"{self.app_url}payments/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{self.app_url}payments/cancel",
             metadata={"order_id": str(order.id)},
             client_reference_id=str(order.user_id),
         )
         return AnyUrl(session.url)
+
+    def parse_webhook_event(self, payload: bytes, sig_header: str) -> stripe.Event:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload=payload,
+                sig_header=sig_header,
+                secret=self._webhook_key,
+            )
+            return event
+        except stripe.error.SignatureVerificationError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Stripe webhook signature.",
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Stripe webhook payload.",
+            )

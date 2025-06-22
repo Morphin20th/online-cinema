@@ -44,6 +44,17 @@ def create_order(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty."
         )
 
+    existing_pending_order = (
+        db.query(OrderModel)
+        .filter_by(user_id=current_user.id, status=OrderStatusEnum.PENDING)
+        .first()
+    )
+    if existing_pending_order:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You already have an unpaid (pending) order.",
+        )
+
     movie_ids = [item.movie_id for item in cart.cart_items]
 
     existing_purchase_count = (
@@ -51,6 +62,7 @@ def create_order(
         .join(OrderModel)
         .filter(
             OrderModel.user_id == current_user.id,
+            OrderModel.status == OrderStatusEnum.PAID,
             OrderItemModel.movie_id.in_(movie_ids),
         )
         .scalar()
@@ -81,8 +93,8 @@ def create_order(
 
         db.add(new_order)
         db.commit()
-
         db.refresh(new_order)
+
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
