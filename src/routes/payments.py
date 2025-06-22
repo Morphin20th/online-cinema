@@ -25,7 +25,7 @@ from src.schemas.payments import (
     PaymentsListResponseSchema,
     BasePaymentSchema,
 )
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -164,25 +164,21 @@ def get_payments(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentsListResponseSchema:
-    offset = (page - 1) * per_page
-
     query = (
         db.query(PaymentModel)
         .filter(PaymentModel.user_id == current_user.id)
         .order_by(PaymentModel.created_at.desc())
     )
 
-    total_items = query.count()
+    paginator = Paginator(request, query, page, per_page)
+    payments = paginator.paginate().all()
 
-    payments = query.offset(offset).limit(per_page).all()
-
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    prev_page, next_page = paginator.get_links()
 
     return PaymentsListResponseSchema(
         payments=(BasePaymentSchema.model_validate(payment) for payment in payments),
-        total_pages=total_pages,
         prev_page=prev_page,
         next_page=next_page,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )

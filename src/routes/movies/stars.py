@@ -9,7 +9,7 @@ from src.database.session import get_db
 from src.dependencies import moderator_or_admin_required, get_current_user
 from src.schemas.common import MessageResponseSchema
 from src.schemas.movies import StarSchema, BaseStarSchema, StarListResponseSchema
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -124,15 +124,11 @@ def get_stars(
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
 ) -> StarListResponseSchema:
-    offset = (page - 1) * per_page
+    query = db.query(StarModel)
 
-    stars_query = db.query(StarModel)
-    total_items = stars_query.count()
-
-    stars = stars_query.offset(offset).limit(per_page).all()
-
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page)
+    stars = paginator.paginate().all()
+    prev_page, next_page = paginator.get_links()
 
     stars_list = [StarSchema(id=star.id, name=star.name) for star in stars]
 
@@ -140,6 +136,6 @@ def get_stars(
         stars=stars_list,
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )

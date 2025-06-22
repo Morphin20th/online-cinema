@@ -18,7 +18,7 @@ from src.dependencies import get_current_user
 from src.schemas.common import MessageResponseSchema
 from src.schemas.orders import BaseOrderSchema
 from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -131,26 +131,22 @@ def get_orders(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OrderListSchema:
-    offset = (page - 1) * per_page
-
     query = (
         db.query(OrderModel)
         .filter(OrderModel.user_id == current_user.id)
         .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
     )
 
-    total_items = query.count()
-    orders = query.offset(offset).limit(per_page).all()
-
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page)
+    orders = paginator.paginate().all()
+    prev_page, next_page = paginator.get_links()
 
     return OrderListSchema(
         orders=[BaseOrderSchema.model_validate(order) for order in orders],
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )
 
 
