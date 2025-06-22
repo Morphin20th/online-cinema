@@ -1,6 +1,7 @@
 import logging
 import smtplib
 from datetime import datetime
+from decimal import Decimal
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -99,3 +100,25 @@ class EmailSender:
             email=to_email,
         )
         self._send_email(to_email, subject, html)
+
+    def send_payment_success_email(
+        self,
+        email: EmailStr,
+        order_id: int,
+        amount: Decimal,
+        date: str,
+        payment_id: str,
+        items: list[dict],
+    ) -> None:
+        subject = "Payment Confirmation"
+        html = self._render(
+            "payment_success",
+            subject=subject,
+            email=email,
+            order_id=order_id,
+            amount=amount,
+            date=date,
+            payment_id=payment_id,
+            items=items,
+        )
+        self._send_email(email, subject, html)

@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.schemas.common import MessageResponseSchema
-from src.schemas.orders import BaseOrderSchema
 from src.database import (
     OrderItemModel,
     OrderModel,
@@ -17,6 +15,8 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user
+from src.schemas.common import MessageResponseSchema
+from src.schemas.orders import BaseOrderSchema
 from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
 from src.utils import build_pagination_links
 

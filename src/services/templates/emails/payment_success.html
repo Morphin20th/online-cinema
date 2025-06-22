@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+{% block content %}
+  <h1>Payment Confirmation</h1>
+  <p>Thank you for your purchase!</p>
+
+  <h2>Order #{{ order_id }}</h2>
+  <p>Date: {{ date }}</p>
+  <p>Amount: ${{ "%.2f"|format(amount) }}</p>
+  <p>Payment ID: {{ payment_id }}</p>
+
+  <h3>Items:</h3>
+  <ul>
+      {% for item in items %}
+      <li>{{ item.name }} - ${{ "%.2f"|format(item.price) }}</li>
+      {% endfor %}
+  </ul>
+{% endblock %}

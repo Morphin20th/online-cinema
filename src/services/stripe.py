@@ -47,6 +47,7 @@ class StripeService:
             cancel_url=f"{self.app_url}payments/cancel",
             metadata={"order_id": str(order.id)},
             client_reference_id=str(order.user_id),
+            customer_email=order.user.email,
         )
         return AnyUrl(session.url)
 
