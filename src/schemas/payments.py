@@ -4,6 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, AnyUrl, ConfigDict
 
+from src.schemas._mixins import EmailMixin
 from src.schemas.common import BaseListSchema
 
 
@@ -19,5 +20,13 @@ class BasePaymentSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaymentListItemSchema(EmailMixin, BasePaymentSchema):
+    pass
+
+
 class PaymentsListResponseSchema(BaseListSchema):
     payments: List[BasePaymentSchema]
+
+
+class AdminPaymentsListResponseSchema(BaseListSchema):
+    payments: List[PaymentListItemSchema]
