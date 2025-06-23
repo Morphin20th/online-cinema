@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
+from src.services import StripeService
 from src.database import (
     OrderItemModel,
     OrderModel,
@@ -12,9 +13,12 @@ from src.database import (
     CartItemModel,
     UserModel,
     CartModel,
+    PaymentModel,
+    PaymentStatusEnum,
+    PurchaseModel,
 )
 from src.database.session import get_db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, get_stripe_service
 from src.schemas.common import MessageResponseSchema
 from src.schemas.orders import BaseOrderSchema
 from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
@@ -191,12 +195,12 @@ def cancel_order(
     return MessageResponseSchema(message="Order successfully cancelled.")
 
 
-# TODO: payment refund logic
 @router.post("/refund/{order_id}/", response_model=MessageResponseSchema)
 def refund_order(
     order_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
+    stripe_service: StripeService = Depends(get_stripe_service),
 ) -> MessageResponseSchema:
     order = (
         db.query(OrderModel)
@@ -221,15 +225,39 @@ def refund_order(
             detail=detail,
         )
 
-    # refund logic
+    latest_payment = (
+        db.query(PaymentModel)
+        .filter_by(order_id=order.id)
+        .order_by(PaymentModel.created_at.desc())
+        .first()
+    )
+
+    if not latest_payment or not latest_payment.external_payment_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid payment found to refund.",
+        )
 
     try:
+
+        stripe_service.create_refund(
+            payment_intent_id=latest_payment.external_payment_id
+        )
+
+        latest_payment.status = PaymentStatusEnum.REFUNDED
         order.status = OrderStatusEnum.CANCELLED
+
+        movie_ids = [item.movie_id for item in order.order_items]
+        db.query(PurchaseModel).filter(
+            PurchaseModel.user_id == order.user_id,
+            PurchaseModel.movie_id.in_(movie_ids),
+        ).delete(synchronize_session=False)
+
         db.commit()
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while trying to refund the order occurred.",
+            detail="Database error during refund processing.",
         )
     return MessageResponseSchema(message="Order successfully refunded.")

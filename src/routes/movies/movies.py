@@ -371,16 +371,15 @@ def get_movies(
 
     query = db.query(MovieModel).filter(*filters)
 
+    sortings = parse_sort_params(sort)
+    if sortings:
+        query = query.order_by(*sortings)
+    else:
+        query = query.order_by(MovieModel.id.desc())
+
     paginator = Paginator(request, query, page, per_page, base_params)
 
-    if paginator.total_items == 0:
-        return MovieListResponseSchema(
-            movies=[], prev_page="", next_page="", total_pages=0, total_items=0
-        )
-
-    sortings = parse_sort_params(sort)
-
-    movies = paginator.paginate().order_by(*sortings).all()
+    movies = paginator.paginate().all()
     prev_page, next_page = paginator.get_links()
 
     return MovieListResponseSchema(

@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta
+
 import stripe
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from pydantic import AnyUrl
-from sqlalchemy.orm import Session
 from starlette import status
 
 from src.database.models.orders import OrderModel
@@ -15,7 +16,9 @@ class StripeService:
 
         stripe.api_key = self._api_key
 
-    def create_checkout_session(self, order: OrderModel) -> AnyUrl:
+    def create_checkout_session(
+        self, order: OrderModel, expires_after_minutes: int = 30
+    ) -> AnyUrl:
         if not order.order_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Order has no items"
@@ -39,6 +42,9 @@ class StripeService:
                 }
             )
 
+        expires_at = int(
+            (datetime.now() + timedelta(minutes=expires_after_minutes)).timestamp()
+        )
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=line_items,
@@ -48,6 +54,7 @@ class StripeService:
             metadata={"order_id": str(order.id)},
             client_reference_id=str(order.user_id),
             customer_email=order.user.email,
+            expires_at=expires_at,
         )
         return AnyUrl(session.url)
 
@@ -68,4 +75,14 @@ class StripeService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Stripe webhook payload.",
+            )
+
+    @staticmethod
+    def create_refund(payment_intent_id: str) -> stripe.Refund:
+        try:
+            return stripe.Refund.create(payment_intent=payment_intent_id)
+        except stripe.error.StripeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Stripe refund error: {e.user_message or str(e)}",
             )

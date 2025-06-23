@@ -60,7 +60,7 @@ class EmailSender:
 
     def send_activation_email(self, to_email: EmailStr, token: str):
         subject = "Account Activation"
-        activation_api_url = f"{self._app_url}/accounts/activate/"
+        activation_api_url = f"{self._app_url}accounts/activate/"
         html = self._render(
             "activation",
             subject=subject,
@@ -73,7 +73,7 @@ class EmailSender:
 
     def send_password_reset_email(self, to_email: EmailStr, token: str):
         subject = "Password Reset Request"
-        reset_api_url = f"{self._app_url}/accounts/reset-password/complete/"
+        reset_api_url = f"{self._app_url}accounts/reset-password/complete/"
         html = self._render(
             "password_reset_request",
             subject=subject,

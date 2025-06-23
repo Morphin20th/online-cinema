@@ -83,8 +83,10 @@ async def stripe_webhook(
 
     event = stripe_service.parse_webhook_event(payload=payload, sig_header=sig_header)
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
+    event_type = event["type"]
+    session = event["data"]["object"]
+
+    if event_type == "checkout.session.completed":
         order_id = int(session["metadata"]["order_id"])
         stripe_payment_id = session.get("payment_intent")
 
@@ -152,6 +154,40 @@ async def stripe_webhook(
             background_tasks.add_task(
                 email_manager.send_payment_success_email, **email_data
             )
+    elif event_type == "checkout.session.expired":
+        metadata = session.get("metadata", {})
+        order_id = metadata.get("order_id")
+        if order_id:
+            order = db.query(OrderModel).filter_by(id=int(order_id)).first()
+            if order and order.status == OrderStatusEnum.PENDING:
+                try:
+                    payment = PaymentModel(
+                        user_id=order.user_id,
+                        order_id=order.id,
+                        amount=order.total,
+                        external_payment_id=session.get("id"),
+                        status=PaymentStatusEnum.CANCELLED,
+                    )
+                    db.add(payment)
+
+                    order.status = OrderStatusEnum.CANCELLED
+                    db.commit()
+
+                except SQLAlchemyError:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="DB error while cancelling expired order.",
+                    )
+
+    elif event_type == "payment_intent.payment_failed":
+        intent = session
+        failure_reason = intent.get("last_payment_error", {}).get(
+            "message", "Unknown reason"
+        )
+        print(
+            f"Payment failed for user={intent.get('client_reference_id')}: {failure_reason}"
+        )
 
     return MessageResponseSchema(message="Webhook handled")
 
