@@ -1,4 +1,9 @@
-from src.dependencies.config import get_settings, get_email_sender, get_redis_client
+from src.dependencies.config import (
+    get_settings,
+    get_email_sender,
+    get_redis_client,
+    get_stripe_service,
+)
 from src.dependencies.auth import (
     get_jwt_auth_manager,
     get_token,

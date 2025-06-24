@@ -29,5 +29,9 @@ def delete_expired_tokens():
         print(
             f"Deleted: {deleted_activation} activation tokens, {deleted_refresh} refresh tokens"
         )
+    except Exception as e:
+        db.rollback()
+        raise e
+
     finally:
         db.close()

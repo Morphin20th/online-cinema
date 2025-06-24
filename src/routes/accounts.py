@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from src.config import BaseAppSettings
+from src.config import Settings
 from src.database import (
     UserModel,
     UserGroupModel,
@@ -58,7 +58,7 @@ def create_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
-    settings: BaseAppSettings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
     existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
@@ -113,7 +113,7 @@ def resend_activation(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
-    settings: BaseAppSettings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),
 ) -> MessageResponseSchema:
     existing_user = get_user_by_email(user_data.email, db)
 
@@ -203,7 +203,7 @@ def activate_account(
 def login_user(
     user_data: UserLoginRequestSchema,
     db: Session = Depends(get_db),
-    settings: BaseAppSettings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ) -> UserLoginResponseSchema:
     user: Optional[UserModel] = get_user_by_email(user_data.email, db)
@@ -273,7 +273,7 @@ def logout_user(
                 detail="Failed to logout. Try again.",
             )
 
-    # 3. Add access token to blacklist (Redis) with TTL
+    # Add access token to blacklist (Redis) with TTL
     exp = payload.get("exp")
     if exp:
         ttl = exp - int(datetime.now(timezone.utc).timestamp())

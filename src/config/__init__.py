@@ -1,1 +1,1 @@
-from src.config.config import BaseAppSettings
+from src.config.settings import Settings

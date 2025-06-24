@@ -1,6 +1,6 @@
 from fastapi import HTTPException, Request, Query, APIRouter
 from fastapi.params import Depends
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
@@ -17,7 +17,7 @@ from src.schemas.movies import (
     MoviesByGenreSchema,
     MovieDetailSchema,
 )
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -86,8 +86,8 @@ def update_genre(
 def get_movies_by_genre(
     genre_id: int,
     request: Request,
-    page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=20),
+    page: int = Query(1, ge=1, description="Page number (1-based index)"),
+    per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
 ) -> MoviesByGenreSchema:
     genre = db.query(GenreModel).filter(GenreModel.id == genre_id).first()
@@ -98,16 +98,14 @@ def get_movies_by_genre(
             detail="Genre with the given ID was not found.",
         )
 
-    offset = (page - 1) * per_page
-
-    movies_query = (
+    query = (
         db.query(MovieModel).join(MovieModel.genres).filter(GenreModel.id == genre_id)
     )
-    total_items = movies_query.count()
-    movies = movies_query.offset(offset).limit(per_page).all()
 
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page)
+    movies = paginator.paginate().all()
+
+    prev_page, next_page = paginator.get_links()
 
     return MoviesByGenreSchema(
         id=genre.id,
@@ -115,8 +113,8 @@ def get_movies_by_genre(
         movies=[MovieDetailSchema.model_validate(movie) for movie in movies],
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )
 
 
@@ -147,29 +145,26 @@ def get_genres(
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
 ):
-    offset = (page - 1) * per_page
-    genres_query = db.query(GenreModel)
-    total_items = genres_query.count()
+    query = (
+        db.query(GenreModel, func.count(MovieModel.id).label("total_movies"))
+        .outerjoin(MovieModel, GenreModel.movies)
+        .group_by(GenreModel.id)
+        .order_by(GenreModel.name)
+    )
 
-    genres = genres_query.offset(offset).limit(per_page).all()
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page)
+    genres = paginator.paginate().all()
+    prev_page, next_page = paginator.get_links()
 
-    genres_list = []
-    for genre in genres:
-        total_movies = db.scalar(
-            select(func.count())
-            .select_from(MovieModel)
-            .where(MovieModel.genres.any(id=genre.id))
-        )
-        genres_list.append(
-            GenreListItem(id=genre.id, name=genre.name, total_movies=total_movies)
-        )
+    genres_list = [
+        GenreListItem(id=genre.id, name=genre.name, total_movies=total_movies or 0)
+        for genre, total_movies in genres
+    ]
 
     return GenreListResponseSchema(
         genres=genres_list,
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )

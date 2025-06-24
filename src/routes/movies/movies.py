@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func, asc, desc
+from sqlalchemy import asc, desc
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
@@ -26,7 +26,7 @@ from src.schemas.movies import (
     UpdateMovieRequestSchema,
     MovieListResponseSchema,
 )
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 ALLOWED_SORT_FIELDS = {
     "name": MovieModel.name,
@@ -348,41 +348,44 @@ def get_movies(
     ] = None,
     sort: Optional[str] = Query(None, description="e.g. `-imdb,year`"),
 ) -> MovieListResponseSchema:
-    offset = (page - 1) * per_page
     filters = []
+    base_params = {}
 
     if year:
         filters.append(MovieModel.year == year)
+        base_params["year"] = year
 
     if imdb:
         filters.append(MovieModel.imdb == imdb)
+        base_params["imdb"] = imdb
 
     if genre:
         filters.append(MovieModel.genres.any(GenreModel.name.ilike(f"%{genre}%")))
+        base_params["genre"] = genre
 
     if certification:
         filters.append(
             MovieModel.certification.has(CertificationModel.name.ilike(certification))
         )
+        base_params["certification"] = certification
 
-    movies_query = db.query(MovieModel).filter(*filters)
-    total_items = movies_query.count()
-
-    if total_items == 0:
-        return MovieListResponseSchema(
-            movies=[], prev_page="", next_page="", total_pages=0, total_items=0
-        )
+    query = db.query(MovieModel).filter(*filters)
 
     sortings = parse_sort_params(sort)
+    if sortings:
+        query = query.order_by(*sortings)
+    else:
+        query = query.order_by(MovieModel.id.desc())
 
-    movies = movies_query.order_by(*sortings).offset(offset).limit(per_page).all()
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page, base_params)
+
+    movies = paginator.paginate().all()
+    prev_page, next_page = paginator.get_links()
 
     return MovieListResponseSchema(
         movies=[MovieDetailSchema.model_validate(movie) for movie in movies],
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )

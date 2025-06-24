@@ -1,11 +1,12 @@
 import logging
 import smtplib
 from datetime import datetime
+from decimal import Decimal
 from email.message import EmailMessage
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
-from pydantic import EmailStr
+from pydantic import EmailStr, AnyUrl
 
 
 class EmailSendingError(Exception):
@@ -19,7 +20,7 @@ class EmailSender:
         email_port: int,
         email_host_user: str,
         from_email: str,
-        app_url: str,
+        app_url: AnyUrl,
         project_root: Path,
     ):
         self._email_host = email_host
@@ -59,7 +60,7 @@ class EmailSender:
 
     def send_activation_email(self, to_email: EmailStr, token: str):
         subject = "Account Activation"
-        activation_api_url = f"{self._app_url}/accounts/activate/"
+        activation_api_url = f"{self._app_url}accounts/activate/"
         html = self._render(
             "activation",
             subject=subject,
@@ -72,7 +73,7 @@ class EmailSender:
 
     def send_password_reset_email(self, to_email: EmailStr, token: str):
         subject = "Password Reset Request"
-        reset_api_url = f"{self._app_url}/accounts/reset-password/complete/"
+        reset_api_url = f"{self._app_url}accounts/reset-password/complete/"
         html = self._render(
             "password_reset_request",
             subject=subject,
@@ -99,3 +100,25 @@ class EmailSender:
             email=to_email,
         )
         self._send_email(to_email, subject, html)
+
+    def send_payment_success_email(
+        self,
+        email: EmailStr,
+        order_id: int,
+        amount: Decimal,
+        date: str,
+        payment_id: str,
+        items: list[dict],
+    ) -> None:
+        subject = "Payment Confirmation"
+        html = self._render(
+            "payment_success",
+            subject=subject,
+            email=email,
+            order_id=order_id,
+            amount=amount,
+            date=date,
+            payment_id=payment_id,
+            items=items,
+        )
+        self._send_email(email, subject, html)

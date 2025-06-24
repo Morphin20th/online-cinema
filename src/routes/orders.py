@@ -1,24 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.schemas.common import MessageResponseSchema
-from src.schemas.orders import BaseOrderSchema
+from src.services import StripeService
 from src.database import (
     OrderItemModel,
     OrderModel,
-    StatusEnum,
+    OrderStatusEnum,
     MovieModel,
     CartItemModel,
     UserModel,
     CartModel,
+    PaymentModel,
+    PaymentStatusEnum,
+    PurchaseModel,
 )
 from src.database.session import get_db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, get_stripe_service
+from src.schemas.common import MessageResponseSchema
+from src.schemas.orders import BaseOrderSchema
 from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
-from src.utils import build_pagination_links
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -44,6 +48,17 @@ def create_order(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty."
         )
 
+    existing_pending_order = (
+        db.query(OrderModel)
+        .filter_by(user_id=current_user.id, status=OrderStatusEnum.PENDING)
+        .first()
+    )
+    if existing_pending_order:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You already have an unpaid (pending) order.",
+        )
+
     movie_ids = [item.movie_id for item in cart.cart_items]
 
     existing_purchase_count = (
@@ -51,6 +66,7 @@ def create_order(
         .join(OrderModel)
         .filter(
             OrderModel.user_id == current_user.id,
+            OrderModel.status == OrderStatusEnum.PAID,
             OrderItemModel.movie_id.in_(movie_ids),
         )
         .scalar()
@@ -64,7 +80,7 @@ def create_order(
     try:
         new_order = OrderModel(
             user_id=current_user.id,
-            status=StatusEnum.PENDING,
+            status=OrderStatusEnum.PENDING,
             order_items=[
                 OrderItemModel(movie_id=item.movie_id) for item in cart.cart_items
             ],
@@ -81,8 +97,8 @@ def create_order(
 
         db.add(new_order)
         db.commit()
-
         db.refresh(new_order)
+
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
@@ -119,26 +135,22 @@ def get_orders(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OrderListSchema:
-    offset = (page - 1) * per_page
-
     query = (
         db.query(OrderModel)
         .filter(OrderModel.user_id == current_user.id)
         .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
     )
 
-    total_items = query.count()
-    orders = query.offset(offset).limit(per_page).all()
-
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    paginator = Paginator(request, query, page, per_page)
+    orders = paginator.paginate().all()
+    prev_page, next_page = paginator.get_links()
 
     return OrderListSchema(
         orders=[BaseOrderSchema.model_validate(order) for order in orders],
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )
 
 
@@ -161,8 +173,8 @@ def cancel_order(
             detail="Order with given ID was not found.",
         )
 
-    if order.status != StatusEnum.PENDING:
-        if order.status == StatusEnum.PAID:
+    if order.status != OrderStatusEnum.PENDING:
+        if order.status == OrderStatusEnum.PAID:
             detail = "Paid orders cannot be cancelled. Please request a refund."
         else:
             detail = "Order is already cancelled."
@@ -172,7 +184,7 @@ def cancel_order(
         )
 
     try:
-        order.status = StatusEnum.CANCELLED
+        order.status = OrderStatusEnum.CANCELLED
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -183,12 +195,12 @@ def cancel_order(
     return MessageResponseSchema(message="Order successfully cancelled.")
 
 
-# TODO: payment refund logic
 @router.post("/refund/{order_id}/", response_model=MessageResponseSchema)
 def refund_order(
     order_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
+    stripe_service: StripeService = Depends(get_stripe_service),
 ) -> MessageResponseSchema:
     order = (
         db.query(OrderModel)
@@ -203,8 +215,8 @@ def refund_order(
             detail="Order with given ID was not found.",
         )
 
-    if order.status != StatusEnum.PAID:
-        if order.status == StatusEnum.CANCELLED:
+    if order.status != OrderStatusEnum.PAID:
+        if order.status == OrderStatusEnum.CANCELLED:
             detail = "Cancelled orders cannot be refunded."
         else:
             detail = "Order is not paid."
@@ -213,15 +225,39 @@ def refund_order(
             detail=detail,
         )
 
-    # refund logic
+    latest_payment = (
+        db.query(PaymentModel)
+        .filter_by(order_id=order.id)
+        .order_by(PaymentModel.created_at.desc())
+        .first()
+    )
+
+    if not latest_payment or not latest_payment.external_payment_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid payment found to refund.",
+        )
 
     try:
-        order.status = StatusEnum.CANCELLED
+
+        stripe_service.create_refund(
+            payment_intent_id=latest_payment.external_payment_id
+        )
+
+        latest_payment.status = PaymentStatusEnum.REFUNDED
+        order.status = OrderStatusEnum.CANCELLED
+
+        movie_ids = [item.movie_id for item in order.order_items]
+        db.query(PurchaseModel).filter(
+            PurchaseModel.user_id == order.user_id,
+            PurchaseModel.movie_id.in_(movie_ids),
+        ).delete(synchronize_session=False)
+
         db.commit()
     except SQLAlchemyError:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while trying to refund the order occurred.",
+            detail="Database error during refund processing.",
         )
     return MessageResponseSchema(message="Order successfully refunded.")

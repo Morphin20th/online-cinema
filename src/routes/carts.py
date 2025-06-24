@@ -13,11 +13,11 @@ from src.database import (
     MovieModel,
     PurchaseModel,
     OrderModel,
-    StatusEnum,
+    OrderStatusEnum,
     OrderItemModel,
 )
 from src.database.session import get_db
-from src.dependencies import get_current_user, admin_required
+from src.dependencies import get_current_user
 from src.schemas.carts import (
     AddMovieToCartRequestSchema,
     BaseCartSchema,
@@ -66,23 +66,6 @@ def get_cart(
     return get_cart_with_items(db, current_user.id)
 
 
-@router.get(
-    "/{user_id}/", response_model=BaseCartSchema, dependencies=[Depends(admin_required)]
-)
-def get_specific_user_cart(
-    user_id: int, db: Session = Depends(get_db)
-) -> BaseCartSchema:
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User with given ID was not found.",
-        )
-
-    return get_cart_with_items(db, user_id)
-
-
 @router.post("/add/", response_model=MessageResponseSchema)
 def add_movie_to_cart(
     data: AddMovieToCartRequestSchema,
@@ -120,7 +103,7 @@ def add_movie_to_cart(
         .join(OrderItemModel)
         .filter(
             OrderModel.user_id == current_user.id,
-            OrderModel.status == StatusEnum.PENDING,
+            OrderModel.status == OrderStatusEnum.PENDING,
             OrderItemModel.movie_id == movie.id,
         )
         .first()

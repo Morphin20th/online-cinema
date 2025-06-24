@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi.params import Depends
 from pydantic import EmailStr
-from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status as http_status
@@ -13,14 +13,23 @@ from src.database import (
     ActivationTokenModel,
     OrderModel,
     OrderItemModel,
-    StatusEnum,
+    OrderStatusEnum,
+    PaymentModel,
+    PaymentStatusEnum,
+    PaymentItemModel,
 )
 from src.database.session import get_db
 from src.dependencies import admin_required
+from src.routes.carts import get_cart_with_items
 from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
+from src.schemas.carts import BaseCartSchema
 from src.schemas.common import MessageResponseSchema
 from src.schemas.orders import AdminOrderListSchema, AdminOrderSchema
-from src.utils import build_pagination_links
+from src.schemas.payments import (
+    AdminPaymentsListResponseSchema,
+    PaymentListItemSchema,
+)
+from src.utils import Paginator
 
 router = APIRouter()
 
@@ -125,21 +134,19 @@ def get_orders(
     ),
     status: Optional[str] = Query(None, description="Filter by order status"),
 ):
-    offset = (page - 1) * per_page
     filters = []
+    base_params = {}
 
     if user_id:
         filters.append(OrderModel.user_id == user_id)
+        base_params["user_id"] = user_id
 
     if created_at:
         try:
             filter_date = datetime.strptime(created_at, "%Y-%m-%d").date()
-            filters.append(
-                OrderModel.created_at >= filter_date,
-            )
-            filters.append(
-                OrderModel.created_at < filter_date + timedelta(days=1),
-            )
+            filters.append(OrderModel.created_at >= filter_date)
+            filters.append(OrderModel.created_at < filter_date + timedelta(days=1))
+            base_params["created_at"] = created_at
         except ValueError:
             raise HTTPException(
                 status_code=http_status.HTTP_400_BAD_REQUEST,
@@ -148,10 +155,11 @@ def get_orders(
 
     if status:
         try:
-            status_enum = StatusEnum(status.lower())
+            status_enum = OrderStatusEnum(status.lower())
             filters.append(OrderModel.status == status_enum)
+            base_params["status"] = status
         except ValueError:
-            allowed_values = [e.value for e in StatusEnum]
+            allowed_values = [e.value for e in OrderStatusEnum]
             raise HTTPException(
                 status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status value. Allowed values: {allowed_values}",
@@ -159,6 +167,7 @@ def get_orders(
 
     if email:
         filters.append(UserModel.email.ilike(f"%{email}%"))
+        base_params["email"] = email
 
     query = (
         db.query(OrderModel)
@@ -170,18 +179,21 @@ def get_orders(
         .filter(*filters)
     )
 
-    total_items = query.count()
+    paginator = Paginator(request, query, page, per_page, base_params)
+    orders = paginator.paginate().all()
 
-    orders = query.offset(offset).limit(per_page).all()
-
-    for order in orders:
-        if order.total_amount is None:
-            order.total_amount = order.total
-            db.add(order)
-    db.commit()
-
-    total_pages = (total_items + per_page - 1) // per_page
-    prev_page, next_page = build_pagination_links(request, page, per_page, total_pages)
+    try:
+        for order in orders:
+            if order.total_amount is None:
+                order.total_amount = order.total
+                db.add(order)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process orders",
+        )
 
     orders_list = [
         AdminOrderSchema(
@@ -195,10 +207,115 @@ def get_orders(
         for order in orders
     ]
 
+    prev_page, next_page = paginator.get_links()
+
     return AdminOrderListSchema(
         orders=orders_list,
         prev_page=prev_page,
         next_page=next_page,
-        total_pages=total_pages,
-        total_items=total_items,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
+    )
+
+
+@router.get(
+    "/carts/{user_id}/",
+    response_model=BaseCartSchema,
+    dependencies=[Depends(admin_required)],
+)
+def get_specific_user_cart(
+    user_id: int, db: Session = Depends(get_db)
+) -> BaseCartSchema:
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="User with given ID was not found.",
+        )
+
+    return get_cart_with_items(db, user_id)
+
+
+@router.get(
+    "/payments/",
+    response_model=AdminPaymentsListResponseSchema,
+    dependencies=[Depends(admin_required)],
+)
+def get_all_payments(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-based index)"),
+    per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
+    db: Session = Depends(get_db),
+    email: Optional[str] = Query(None, description="Filter by user email"),
+    created_at: Optional[str] = Query(
+        None, description="Filter by payment date (YYYY-MM-DD)"
+    ),
+    status: Optional[str] = Query(None, description="Filter by payment status"),
+) -> AdminPaymentsListResponseSchema:
+    filters = []
+    base_params = {}
+
+    if email:
+        filters.append(UserModel.email.ilike(f"%{email}%"))
+        base_params["email"] = email
+
+    if created_at:
+        try:
+            filter_date = datetime.strptime(created_at, "%Y-%m-%d").date()
+            filters.append(PaymentModel.created_at >= filter_date)
+            filters.append(PaymentModel.created_at < filter_date + timedelta(days=1))
+            base_params["created_at"] = created_at
+        except ValueError:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date format. Use YYYY-MM-DD",
+            )
+
+    if status:
+        try:
+            status_enum = PaymentStatusEnum(status.lower())
+            filters.append(PaymentModel.status == status_enum)
+            base_params["status"] = status
+        except ValueError:
+            allowed_values = [e.value for e in PaymentStatusEnum]
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status value. Allowed values: {allowed_values}",
+            )
+
+    query = (
+        db.query(PaymentModel, UserModel.email)
+        .join(UserModel, PaymentModel.user_id == UserModel.id)
+        .options(
+            joinedload(PaymentModel.order).joinedload(OrderModel.order_items),
+            joinedload(PaymentModel.payment_items).joinedload(
+                PaymentItemModel.order_item
+            ),
+        )
+        .filter(*filters)
+        .order_by(PaymentModel.created_at.desc())
+    )
+
+    paginator = Paginator(request, query, page, per_page, base_params)
+    payments = paginator.paginate().all()
+
+    prev_page, next_page = paginator.get_links()
+
+    payments_list = [
+        PaymentListItemSchema(
+            created_at=payment.created_at,
+            amount=payment.amount,
+            status=payment.status,
+            email=email,
+        )
+        for payment, email in payments
+    ]
+
+    return AdminPaymentsListResponseSchema(
+        payments=payments_list,
+        prev_page=prev_page,
+        next_page=next_page,
+        total_pages=paginator.total_pages,
+        total_items=paginator.total_items,
     )

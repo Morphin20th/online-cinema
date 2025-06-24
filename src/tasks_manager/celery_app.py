@@ -3,9 +3,14 @@ from celery.schedules import crontab
 
 from src.dependencies import get_settings
 
+
+settings = get_settings()
+
+celery_url = str(settings.CELERY_BROKER_URL)
+
 celery_app = Celery("cinema")
-celery_app.conf.broker_url = get_settings().CELERY_URL
-celery_app.conf.result_backend = get_settings().CELERY_URL
+celery_app.conf.broker_url = celery_url
+celery_app.conf.result_backend = celery_url
 celery_app.conf.timezone = "UTC"
 
 import src.tasks_manager.tasks.cleanup  # noqa

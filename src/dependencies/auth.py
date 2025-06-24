@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from src.database import UserModel
 from src.database.session import get_db
 from src.dependencies.config import get_settings, get_redis_client
-from src.config import BaseAppSettings
+from src.config import Settings
 from src.security.token_manager import JWTManager
 
 
 def get_jwt_auth_manager(
-    settings: BaseAppSettings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),
 ) -> JWTManager:
 
     return JWTManager(
