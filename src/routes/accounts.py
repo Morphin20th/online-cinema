@@ -7,6 +7,11 @@ from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.schemas.examples import (
+    BASE_AUTH_EXAMPLES,
+    CURRENT_USER_EXAMPLES,
+    INVALID_CREDENTIAL_EXAMPLES,
+)
 from src.config import Settings
 from src.database import (
     UserModel,
@@ -42,12 +47,7 @@ from src.schemas.accounts import (
 from src.schemas.common import MessageResponseSchema
 from src.security.token_manager import JWTManager
 from src.services import EmailSender
-from src.utils import generate_secure_token, generate_error_response
-from src.utils.responses import (
-    current_user_responses,
-    unauthorized_401_with_invalid_email_password,
-    base_token_401_response,
-)
+from src.utils import generate_secure_token, aggregate_error_examples
 
 router = APIRouter()
 
@@ -63,15 +63,15 @@ def get_user_by_email(email, db: Session) -> Optional[UserModel]:
     description="Register a new user with an email an password",
     status_code=status.HTTP_201_CREATED,
     responses={
-        **generate_error_response(
-            status.HTTP_409_CONFLICT,
-            "Conflict - User with this email already exists.",
-            "A user with this email test@example.com already exists.",
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "email_conflict": "A user with this email test@example.com already exists."
+            },
         ),
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: An error occurred during user creation.",
-            "An error occurred during user creation.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred during user creation."},
         ),
     },
 )
@@ -152,25 +152,21 @@ def create_user(
     response_model=MessageResponseSchema,
     status_code=status.HTTP_200_OK,
     summary="Resend User Activation Email",
-    description=(
-        "Handles the resend activation process for "
-        + "users who have not yet activated their accounts."
-    ),
+    description="Endpoint for resending User Activation Email",
     responses={
-        **generate_error_response(
-            status.HTTP_400_BAD_REQUEST,
-            "Bad Request: Activation token still valid.",
-            "Activation token still valid",
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"token_valid": "Activation token still valid."},
         ),
-        **generate_error_response(
-            status.HTTP_404_NOT_FOUND,
-            "Not Found: User with given email not found.",
-            "User with given email test@example.com not found.",
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
         ),
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: An error occurred while creating the token.",
-            "An error occurred while creating the token.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred while creating the token."},
         ),
     },
 )
@@ -259,10 +255,9 @@ def resend_activation(
     summary="User Activation",
     description="Activate user account by verifying the provided email and activation token.",
     responses={
-        **generate_error_response(
-            status.HTTP_400_BAD_REQUEST,
-            "Bad Request: Invalid or expired token",
-            "Invalid or expired token",
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"invalid": "Invalid or expired token"},
         ),
     },
 )
@@ -325,20 +320,17 @@ def activate_account(
     summary="User Login",
     description="Logs in a user by validating their credentials",
     responses={
-        **generate_error_response(
-            status.HTTP_401_UNAUTHORIZED,
-            "Unauthorized: Invalid email or password.",
-            "Invalid email or password.",
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized",
+            examples={"credentials": "Invalid email or password."},
         ),
-        **generate_error_response(
-            status.HTTP_403_FORBIDDEN,
-            "Forbidden: Your account is not activated",
-            "Your account is not activated.",
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
         ),
-        **generate_error_response(
-            500,
-            "Internal Server Error: An error occurred while creating the token",
-            "An error occurred while creating the token",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred while creating the token"},
         ),
     },
 )
@@ -411,16 +403,14 @@ def login_user(
     response_model=MessageResponseSchema,
     status_code=status.HTTP_200_OK,
     summary="User Logout",
-    description=(
-        "Log outs user by removing the refresh token "
-        + "from database and blacklisting the access token"
-    ),
+    description="Endpoint for user logout",
     responses={
-        **base_token_401_response(),
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: Failed to logout. Try again.",
-            "Failed to logout. Try again.",
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=BASE_AUTH_EXAMPLES
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Failed to logout. Try again."},
         ),
     },
 )
@@ -484,7 +474,14 @@ def logout_user(
     status_code=status.HTTP_200_OK,
     summary="Refresh Access Token",
     description="Refreshes the access token using a valid refresh token",
-    responses={**current_user_responses()},
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden", examples={"inactive_user": "Inactive user."}
+        ),
+    },
 )
 def refresh_token(
     token_data: TokenRefreshRequestSchema,
@@ -550,16 +547,23 @@ def refresh_token(
     summary="Password Change for an authenticated user",
     description="Password Change",
     responses={
-        **unauthorized_401_with_invalid_email_password(),
-        **generate_error_response(
-            status.HTTP_409_CONFLICT,
-            "Conflict: New password cannot be same as the old one.",
-            "New password cannot be same as the old one.",
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=INVALID_CREDENTIAL_EXAMPLES
         ),
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: Error occurred during new password creation.",
-            "Error occurred during new password creation.",
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden", examples={"inactive_user": "Inactive user."}
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "password_conflict": "New password cannot be same as the old one."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during new password creation."
+            },
         ),
     },
 )
@@ -613,11 +617,10 @@ def change_password(
     summary="Password Reset Request",
     description="Handles the process of requesting a password reset",
     responses={
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: Something went wrong.",
-            "Something went wrong.",
-        )
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Something went wrong."},
+        ),
     },
 )
 def reset_password_request(
@@ -674,15 +677,15 @@ def reset_password_request(
     summary="Password Reset Completion",
     description="Handles the completion of a password reset process for a user.",
     responses={
-        **generate_error_response(
-            status.HTTP_400_BAD_REQUEST,
-            "Bad Request: Invalid email or token.",
-            "Invalid email or token.",
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"invalid_token_email": "Invalid email or token."},
         ),
-        **generate_error_response(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Internal Server Error: Error occurred during new password creation.",
-            "Error occurred during new password creation.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during new password creation."
+            },
         ),
     },
 )

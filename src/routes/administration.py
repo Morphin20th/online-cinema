@@ -24,12 +24,13 @@ from src.routes.carts import get_cart_with_items
 from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
 from src.schemas.carts import BaseCartSchema
 from src.schemas.common import MessageResponseSchema
+from src.schemas.examples import ADMIN_REQUIRED_EXAMPLES
 from src.schemas.orders import AdminOrderListSchema, AdminOrderSchema
 from src.schemas.payments import (
     AdminPaymentsListResponseSchema,
     PaymentListItemSchema,
 )
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
@@ -42,6 +43,30 @@ def get_user_by_email(email: EmailStr, db: Session):
     "/accounts/activate/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="User Account Activation by Admin",
+    description="Endpoint for activation users by admin",
+    responses={
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during user account activation."
+            },
+        ),
+    },
 )
 def admin_activate_user(
     data: BaseEmailSchema,
@@ -51,7 +76,8 @@ def admin_activate_user(
 
     if not user:
         raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"User with given email {data.email} not found.",
         )
 
     if user.is_active:
@@ -67,13 +93,44 @@ def admin_activate_user(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error activating user account",
+            detail="Error occurred during user account activation.",
         )
 
     return MessageResponseSchema(message="User account activated successfully by admin")
 
 
-@router.post("/accounts/change-group/", response_model=MessageResponseSchema)
+@router.post(
+    "/accounts/change-group/",
+    response_model=MessageResponseSchema,
+    status_code=http_status.HTTP_200_OK,
+    summary="Change User Group by Admin",
+    description="Endpoint for changing user group by admin",
+    responses={
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request", examples={"invalid_group": "Invalid group ID"}
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Your account is not activated.",
+                "self_group_change": "Prevent changing the group of a user with the same ID as you.",
+            },
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during user group changing."},
+        ),
+    },
+)
 def change_user_group(
     data: ChangeGroupRequest,
     db: Session = Depends(get_db),
@@ -83,7 +140,8 @@ def change_user_group(
 
     if not user:
         raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"User with given email {data.email} not found.",
         )
 
     if user.id == current_user.id:
@@ -110,7 +168,7 @@ def change_user_group(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during user group changing.",
         )
     return MessageResponseSchema(
         message=f"User group successfully changed to {data.group_id}."
@@ -121,6 +179,29 @@ def change_user_group(
     "/orders/",
     response_model=AdminOrderListSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get List of Orders for Admin",
+    description="Endpoint for getting the list of all orders available",
+    responses={
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "invalid_date": "Invalid date format. Use YYYY-MM-DD",
+                "invalid_status": "Invalid status value. Allowed values: pending, paid, cancelled",
+            },
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during processing of orders."},
+        ),
+    },
 )
 def get_orders(
     request: Request,
@@ -192,7 +273,7 @@ def get_orders(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process orders",
+            detail="Error occurred during processing of orders.",
         )
 
     orders_list = [
@@ -222,6 +303,22 @@ def get_orders(
     "/carts/{user_id}/",
     response_model=BaseCartSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get User Carts by Admin",
+    description="Endpoint for getting user carts for Admin",
+    responses={
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_user_found": "User with given ID was not found."},
+        ),
+    },
 )
 def get_specific_user_cart(
     user_id: int, db: Session = Depends(get_db)
@@ -241,6 +338,25 @@ def get_specific_user_cart(
     "/payments/",
     response_model=AdminPaymentsListResponseSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get List of All Payments available",
+    description="Endpoint for getting all available payments by admin",
+    responses={
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "invalid_date": "Invalid date format. Use YYYY-MM-DD",
+                "invalid_status": "Invalid status value. Allowed values: successful, pending, refunded",
+            },
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+    },
 )
 def get_all_payments(
     request: Request,
