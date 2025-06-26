@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
+from src.schemas.examples import CURRENT_USER_EXAMPLES
 from src.database import (
     UserModel,
     CartModel,
@@ -24,6 +25,7 @@ from src.schemas.carts import (
     CartItemResponseSchema,
 )
 from src.schemas.common import MessageResponseSchema
+from src.utils import aggregate_error_examples
 
 router = APIRouter()
 
@@ -58,7 +60,24 @@ def get_cart_with_items(db: Session, user_id: int) -> BaseCartSchema:
     return BaseCartSchema(cart_items=cart_items_list)
 
 
-@router.get("/", response_model=BaseCartSchema)
+@router.get(
+    "/",
+    response_model=BaseCartSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get User Cart",
+    description="Endpoint for getting user cart.",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+    },
+)
 def get_cart(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -66,7 +85,47 @@ def get_cart(
     return get_cart_with_items(db, current_user.id)
 
 
-@router.post("/add/", response_model=MessageResponseSchema)
+@router.post(
+    "/add/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Add Movie to Cart using UUID",
+    description="Endpoint for adding movies to cart by UUID",
+    responses={
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "movie_purchased": "Movie already purchased.",
+                "movie_in_order": "Movie is currently in the order in the pending status.",
+            },
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_movie_found": "Movie with given UUID was not found.",
+                "no_cart_found": "Cart not found.",
+            },
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict", examples={"movie_in_cart": "Movie already in cart."}
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during adding movie to a cart."
+            },
+        ),
+    },
+)
 def add_movie_to_cart(
     data: AddMovieToCartRequestSchema,
     db: Session = Depends(get_db),
@@ -77,7 +136,7 @@ def add_movie_to_cart(
     if not movie:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie with given ID was not found.",
+            detail="Movie with given UUID was not found.",
         )
 
     cart = db.query(CartModel).filter(CartModel.user_id == current_user.id).first()
@@ -131,12 +190,42 @@ def add_movie_to_cart(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add movie to cart.",
+            detail="Error occurred during adding movie to a cart.",
         )
     return MessageResponseSchema(message="Movie has been added to cart successfully.")
 
 
-@router.delete("/items/{movie_uuid}/", response_model=MessageResponseSchema)
+@router.delete(
+    "/items/{movie_uuid}/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Delete Movie from Cart",
+    description="Endpoint for removing movie from cart.",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_movie_found": "Movie not found in cart.",
+                "no_cart_found": "Cart not found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during removing movie from cart."
+            },
+        ),
+    },
+)
 def remove_movie_from_cart(
     movie_uuid: UUID,
     current_user: UserModel = Depends(get_current_user),
@@ -173,13 +262,42 @@ def remove_movie_from_cart(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while removing movie from cart occurred.",
+            detail="Error occurred during removing movie from cart.",
         )
 
     return MessageResponseSchema(message="Movie removed from cart.")
 
 
-@router.delete("/items/", response_model=MessageResponseSchema)
+@router.delete(
+    "/items/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Delete All Movies from Cart",
+    description="Endpoint for cleaning shopping cart of movies",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_cart_found": "Cart not found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred while removing movies from cart."
+            },
+        ),
+    },
+)
 def remove_all_movies_from_cart(
     current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> MessageResponseSchema:
@@ -202,6 +320,6 @@ def remove_all_movies_from_cart(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while trying to remove movies from cart occurred.",
+            detail="Error occurred while removing movies from cart.",
         )
     return MessageResponseSchema(message="All movies removed from cart.")

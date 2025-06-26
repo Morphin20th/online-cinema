@@ -1,10 +1,10 @@
-from fastapi import HTTPException, Request, Query, APIRouter
-from fastapi.params import Depends
+from fastapi import HTTPException, Request, Query, APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from src.schemas.examples import MODERATOR_OR_ADMIN_EXAMPLES, CURRENT_USER_EXAMPLES
 from src.database import GenreModel, MovieModel
 from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
@@ -17,7 +17,7 @@ from src.schemas.movies import (
     MoviesByGenreSchema,
     MovieDetailSchema,
 )
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
@@ -26,6 +26,26 @@ router = APIRouter()
     "/create/",
     response_model=GenreSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Genre",
+    description="Endpoint for genre creation",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={"name_conflict": "A genre with name 'genre' already exists."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during genre creation."},
+        ),
+    },
 )
 def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreSchema:
     genre = db.query(GenreModel).filter(GenreModel.name.ilike(data.name)).first()
@@ -44,7 +64,7 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during genre creation.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -53,6 +73,30 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
     "/{genre_id}/",
     response_model=GenreSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_200_OK,
+    summary="Update Genre",
+    description="Endpoint for genre updating",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_genre_found": "Genre with the given ID was not found."},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={"name_conflict": "A genre with name 'genre' already exists."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during genre update."},
+        ),
+    },
 )
 def update_genre(
     genre_id: int, genre_data: BaseGenreSchema, db: Session = Depends(get_db)
@@ -73,7 +117,7 @@ def update_genre(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during genre update.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -82,6 +126,22 @@ def update_genre(
     "/{genre_id}/",
     response_model=MoviesByGenreSchema,
     dependencies=[Depends(get_current_user)],
+    status_code=status.HTTP_200_OK,
+    summary="Get Movies by Genre",
+    description="Endpoint for getting movies by genre",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user."},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_genre_found": "Genre with the given ID was not found."},
+        ),
+    },
 )
 def get_movies_by_genre(
     genre_id: int,
@@ -122,6 +182,25 @@ def get_movies_by_genre(
     "/genres/{genre_id}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    summary="Delete Genre",
+    description="Endpoint for deleting genre",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_genre_found": "Genre with the given ID was not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during genre deleting"},
+        ),
+    },
 )
 def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
     genre = db.query(GenreModel).filter(GenreModel.id == genre_id).first()
@@ -131,14 +210,26 @@ def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageRespons
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Genre with the given ID was not found.",
         )
-
-    db.delete(genre)
-    db.commit()
+    try:
+        db.delete(genre)
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error occurred during genre deleting.",
+        )
 
     return MessageResponseSchema(message="Genre deleted successfully")
 
 
-@router.get("/", response_model=GenreListResponseSchema)
+@router.get(
+    "/",
+    response_model=GenreListResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get Genres",
+    description="Endpoint for getting genres",
+)
 def get_genres(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),

@@ -4,12 +4,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from src.schemas.examples import CURRENT_USER_EXAMPLES, MODERATOR_OR_ADMIN_EXAMPLES
 from src.database import StarModel
 from src.database.session import get_db
 from src.dependencies import moderator_or_admin_required, get_current_user
 from src.schemas.common import MessageResponseSchema
 from src.schemas.movies import StarSchema, BaseStarSchema, StarListResponseSchema
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
@@ -19,6 +20,25 @@ router = APIRouter()
     response_model=StarSchema,
     dependencies=[Depends(moderator_or_admin_required)],
     status_code=status.HTTP_201_CREATED,
+    summary="Create Star",
+    description="Endpoint for creating stars",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={"star_exists": "A star with name 'test name' already exists."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred while trying to create star."},
+        ),
+    },
 )
 def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSchema:
     existing_star = (
@@ -28,7 +48,7 @@ def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSche
     if existing_star:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"A star with name {data.name} already exists.",
+            detail=f"A star with name '{data.name}' already exists.",
         )
 
     try:
@@ -39,7 +59,7 @@ def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSche
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred while trying to create star.",
         )
 
     return StarSchema.model_validate(star)
@@ -49,6 +69,22 @@ def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSche
     "/{star_id}/",
     response_model=StarSchema,
     dependencies=[Depends(get_current_user)],
+    status_code=status.HTTP_200_OK,
+    summary="Get Star Detail",
+    description="Endpoint for getting star details",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user."},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_star_found": "Star with the given ID was not found."},
+        ),
+    },
 )
 def get_star(star_id: int, db: Session = Depends(get_db)) -> StarSchema:
     existing_star = db.query(StarModel).filter(StarModel.id == star_id).first()
@@ -66,6 +102,26 @@ def get_star(star_id: int, db: Session = Depends(get_db)) -> StarSchema:
     "/{star_id}/",
     response_model=StarSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_200_OK,
+    summary="Update Star",
+    description="Endpoint for updating star",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_star_found": "Star with the given ID was not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred while trying to update star."},
+        ),
+    },
 )
 def update_stars(
     star_id: int, data: BaseStarSchema, db: Session = Depends(get_db)
@@ -86,7 +142,7 @@ def update_stars(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred while trying to update star.",
         )
     return StarSchema.model_validate(star)
 
@@ -95,6 +151,26 @@ def update_stars(
     "/{star_id}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_200_OK,
+    summary="Delete Star",
+    description="Endpoint for deleting star",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_star_found": "Star with the given ID was not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred while trying to delete star."},
+        ),
+    },
 )
 def delete_star(star_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
     star = db.query(StarModel).filter(StarModel.id == star_id).first()
@@ -112,12 +188,18 @@ def delete_star(star_id: int, db: Session = Depends(get_db)) -> MessageResponseS
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred while trying to delete star.",
         )
     return MessageResponseSchema(message="Star has been deleted successfully.")
 
 
-@router.get("/", response_model=StarListResponseSchema)
+@router.get(
+    "/",
+    response_model=StarListResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get Stars List",
+    description="Endpoint for getting stars list",
+)
 def get_stars(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),

@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.session import Session
 from starlette import status
 
+from src.schemas.examples import CURRENT_USER_EXAMPLES, STRIPE_ERRORS_EXAMPLES
 from src.services import StripeService, EmailSender
 from src.database import (
     OrderModel,
@@ -25,12 +26,39 @@ from src.schemas.payments import (
     PaymentsListResponseSchema,
     BasePaymentSchema,
 )
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
 
-@router.post("/checkout-session/", response_model=CheckoutResponseSchema)
+@router.post(
+    "/checkout-session/",
+    response_model=CheckoutResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Create Stripe Checkout Session",
+    description="Endpoint for creating Stripe checkout session",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_order_found": "No pending order found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Something went wrong."},
+        ),
+    },
+)
 def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
@@ -52,25 +80,62 @@ def create_checkout_session(
 
     try:
         checkout_url = stripe_service.create_checkout_session(order)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
         )
 
     return CheckoutResponseSchema(checkout_url=checkout_url)
 
 
-@router.get("/success", response_model=MessageResponseSchema)
+@router.get(
+    "/success/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Success",
+    description="Stripe success endpoint",
+)
 def return_success():
     return MessageResponseSchema(message="Payment was successful! Thank you!")
 
 
-@router.get("/cancel", response_model=MessageResponseSchema)
+@router.get(
+    "/cancel/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Cancel",
+    description="Stripe cancel endpoint",
+)
 def return_cancel() -> MessageResponseSchema:
     return MessageResponseSchema(message="Payment was cancelled.")
 
 
-@router.post("/webhook/", response_model=MessageResponseSchema)
+@router.post(
+    "/webhook/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Webhook",
+    description="Endpoint to handle Stripe webhook events",
+    responses={
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request", examples={**STRIPE_ERRORS_EXAMPLES}
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_order_found": "Order not found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Something went wrong.",
+                "cancel": "Error occurred while cancelling expired order.",
+            },
+        ),
+    },
+)
 async def stripe_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -177,7 +242,7 @@ async def stripe_webhook(
                     db.rollback()
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="DB error while cancelling expired order.",
+                        detail="Error occurred while cancelling expired order.",
                     )
 
     elif event_type == "payment_intent.payment_failed":
@@ -192,7 +257,24 @@ async def stripe_webhook(
     return MessageResponseSchema(message="Webhook handled")
 
 
-@router.get("/", response_model=PaymentsListResponseSchema)
+@router.get(
+    "/",
+    response_model=PaymentsListResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get Payments",
+    description="Endpoint for getting user payments",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+    },
+)
 def get_payments(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
