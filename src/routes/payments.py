@@ -1,14 +1,18 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
-from fastapi.params import Depends, Query
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    BackgroundTasks,
+    Depends,
+    Query,
+    status,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.session import Session
-from starlette import status
 
-from src.schemas.examples import CURRENT_USER_EXAMPLES, STRIPE_ERRORS_EXAMPLES
-from src.services import StripeService, EmailSender
 from src.database import (
     OrderModel,
     OrderStatusEnum,
@@ -20,12 +24,15 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service, get_email_sender
-from src.schemas.common import MessageResponseSchema
-from src.schemas.payments import (
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    STRIPE_ERRORS_EXAMPLES,
+    MessageResponseSchema,
     CheckoutResponseSchema,
     PaymentsListResponseSchema,
     BasePaymentSchema,
 )
+from src.services import StripeService, EmailSender
 from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()

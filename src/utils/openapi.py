@@ -1,4 +1,4 @@
-from src.schemas.common import ErrorResponseSchema
+from src.schemas import ErrorResponseSchema
 
 
 def aggregate_error_examples(

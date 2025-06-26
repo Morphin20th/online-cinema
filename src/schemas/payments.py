@@ -4,8 +4,8 @@ from typing import List
 
 from pydantic import BaseModel, AnyUrl, ConfigDict
 
-from src.schemas._mixins import EmailMixin
-from src.schemas.common import BaseListSchema
+from ._mixins import EmailMixin
+from .common import BaseListSchema
 
 
 class CheckoutResponseSchema(BaseModel):

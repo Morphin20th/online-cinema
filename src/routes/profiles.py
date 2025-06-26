@@ -2,19 +2,18 @@ import os
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException, status
-from fastapi.params import Depends
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, status, Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.database import GenderEnum, UserProfileModel, UserModel
 from src.database.session import get_db
 from src.dependencies import get_settings, get_current_user
-from src.schemas.examples import (
+from src.schemas import (
     CURRENT_USER_EXAMPLES,
     PROFILE_VALIDATION_EXAMPLES,
+    ProfileSchema,
 )
-from src.schemas.profiles import ProfileSchema
 from src.utils import aggregate_error_examples
 from src.validation import (
     validate_name,

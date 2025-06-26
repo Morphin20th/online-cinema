@@ -4,8 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.schemas.examples import CURRENT_USER_EXAMPLES, STRIPE_ERRORS_EXAMPLES
-from src.services import StripeService
 from src.database import (
     OrderItemModel,
     OrderModel,
@@ -20,9 +18,16 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service
-from src.schemas.common import MessageResponseSchema
-from src.schemas.orders import BaseOrderSchema
-from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    STRIPE_ERRORS_EXAMPLES,
+    MessageResponseSchema,
+    CreateOrderResponseSchema,
+    MovieSchema,
+    OrderListSchema,
+    BaseOrderSchema,
+)
+from src.services import StripeService
 from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()

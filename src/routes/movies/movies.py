@@ -1,11 +1,10 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import asc, desc
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status
 
 from src.database import (
     MovieModel,
@@ -26,9 +25,10 @@ from src.routes.movies.movie_utils import (
     get_movie_by_uuid,
     update_movie_relations,
 )
-from src.schemas.common import MessageResponseSchema
-from src.schemas.examples import CURRENT_USER_EXAMPLES, MODERATOR_OR_ADMIN_EXAMPLES
-from src.schemas.movies import (
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    MODERATOR_OR_ADMIN_EXAMPLES,
+    MessageResponseSchema,
     CreateMovieRequestSchema,
     MovieDetailSchema,
     UpdateMovieRequestSchema,

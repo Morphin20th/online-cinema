@@ -21,12 +21,14 @@ from src.database import (
 from src.database.session import get_db
 from src.dependencies import admin_required
 from src.routes.carts import get_cart_with_items
-from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
-from src.schemas.carts import BaseCartSchema
-from src.schemas.common import MessageResponseSchema
-from src.schemas.examples import ADMIN_REQUIRED_EXAMPLES
-from src.schemas.orders import AdminOrderListSchema, AdminOrderSchema
-from src.schemas.payments import (
+from src.schemas import (
+    ADMIN_REQUIRED_EXAMPLES,
+    BaseEmailSchema,
+    ChangeGroupRequest,
+    BaseCartSchema,
+    MessageResponseSchema,
+    AdminOrderListSchema,
+    AdminOrderSchema,
     AdminPaymentsListResponseSchema,
     PaymentListItemSchema,
 )

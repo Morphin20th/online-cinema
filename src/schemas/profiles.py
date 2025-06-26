@@ -1,9 +1,10 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from pydantic import BaseModel, field_serializer
 
-from src.database import GenderEnum
+if TYPE_CHECKING:
+    from src.database import GenderEnum
 
 
 class ProfileSchema(BaseModel):
@@ -11,7 +12,7 @@ class ProfileSchema(BaseModel):
     user_id: int
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    gender: Optional[GenderEnum] = None
+    gender: Optional["GenderEnum"] = None
     date_of_birth: Optional[date] = None
     info: Optional[str] = None
     avatar: Optional[str] = None

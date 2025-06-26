@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from src.schemas._mixins import EmailMixin
-from src.schemas.common import BaseListSchema
+from ._mixins import EmailMixin
+from .common import BaseListSchema
 
 
 # --- Base Model Schemas ---

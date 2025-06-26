@@ -1,22 +1,22 @@
-from fastapi import HTTPException, Request, Query, APIRouter, Depends
+from fastapi import status, HTTPException, Request, Query, APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from starlette import status
 
-from src.schemas.examples import MODERATOR_OR_ADMIN_EXAMPLES, CURRENT_USER_EXAMPLES
-from src.database import GenreModel, MovieModel
-from src.database.session import get_db
-from src.dependencies import get_current_user, moderator_or_admin_required
-from src.schemas.common import MessageResponseSchema
-from src.schemas.movies import (
+from src.schemas import (
+    MODERATOR_OR_ADMIN_EXAMPLES,
+    CURRENT_USER_EXAMPLES,
+    MessageResponseSchema,
     GenreSchema,
     BaseGenreSchema,
-    GenreListResponseSchema,
     GenreListItem,
+    GenreListResponseSchema,
     MoviesByGenreSchema,
     MovieDetailSchema,
 )
+from src.database import GenreModel, MovieModel
+from src.database.session import get_db
+from src.dependencies import get_current_user, moderator_or_admin_required
 from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()

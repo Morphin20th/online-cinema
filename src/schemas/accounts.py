@@ -1,10 +1,6 @@
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    field_validator,
-)
+from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.schemas._mixins import EmailMixin, PasswordMixin
+from ._mixins import EmailMixin, PasswordMixin
 from src.validation import password_validation
 
 

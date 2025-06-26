@@ -1,12 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
-from fastapi.params import Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status
 
-from src.schemas.examples import CURRENT_USER_EXAMPLES
 from src.database import (
     UserModel,
     CartModel,
@@ -19,12 +16,13 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user
-from src.schemas.carts import (
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
     AddMovieToCartRequestSchema,
     BaseCartSchema,
     CartItemResponseSchema,
+    MessageResponseSchema,
 )
-from src.schemas.common import MessageResponseSchema
 from src.utils import aggregate_error_examples
 
 router = APIRouter()

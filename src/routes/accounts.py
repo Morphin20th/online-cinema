@@ -7,10 +7,22 @@ from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.schemas.examples import (
+from src.schemas import (
     BASE_AUTH_EXAMPLES,
     CURRENT_USER_EXAMPLES,
     INVALID_CREDENTIAL_EXAMPLES,
+    UserRegistrationResponseSchema,
+    UserRegistrationRequestSchema,
+    UserLoginResponseSchema,
+    UserLoginRequestSchema,
+    ChangePasswordRequestSchema,
+    PasswordResetRequestSchema,
+    PasswordResetCompleteRequestSchema,
+    LogoutRequestSchema,
+    EmailRequestSchema,
+    TokenRefreshRequestSchema,
+    TokenRefreshResponseSchema,
+    MessageResponseSchema,
 )
 from src.config import Settings
 from src.database import (
@@ -31,20 +43,6 @@ from src.dependencies import (
     get_token,
     get_current_user,
 )
-from src.schemas.accounts import (
-    UserRegistrationResponseSchema,
-    UserRegistrationRequestSchema,
-    UserLoginResponseSchema,
-    UserLoginRequestSchema,
-    ChangePasswordRequestSchema,
-    PasswordResetRequestSchema,
-    PasswordResetCompleteRequestSchema,
-    LogoutRequestSchema,
-    EmailRequestSchema,
-    TokenRefreshRequestSchema,
-    TokenRefreshResponseSchema,
-)
-from src.schemas.common import MessageResponseSchema
 from src.security.token_manager import JWTManager
 from src.services import EmailSender
 from src.utils import generate_secure_token, aggregate_error_examples
