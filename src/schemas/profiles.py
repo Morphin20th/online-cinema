@@ -1,10 +1,9 @@
 from datetime import date
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from pydantic import BaseModel, field_serializer
 
-if TYPE_CHECKING:
-    from src.database import GenderEnum
+from src.database.models.enums import GenderEnum
 
 
 class ProfileSchema(BaseModel):
@@ -12,7 +11,7 @@ class ProfileSchema(BaseModel):
     user_id: int
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    gender: Optional["GenderEnum"] = None
+    gender: Optional[GenderEnum] = None
     date_of_birth: Optional[date] = None
     info: Optional[str] = None
     avatar: Optional[str] = None
@@ -20,3 +19,6 @@ class ProfileSchema(BaseModel):
     @field_serializer("first_name", "last_name")
     def serialize_lower(self, value: str) -> str:
         return value.lower()
+
+
+ProfileSchema.model_rebuild()

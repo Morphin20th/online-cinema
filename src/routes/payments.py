@@ -102,6 +102,12 @@ def create_checkout_session(
     status_code=status.HTTP_200_OK,
     summary="Stripe Success",
     description="Stripe success endpoint",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Payment was successful! Thank you!"},
+        ),
+    },
 )
 def return_success():
     return MessageResponseSchema(message="Payment was successful! Thank you!")
@@ -113,6 +119,12 @@ def return_success():
     status_code=status.HTTP_200_OK,
     summary="Stripe Cancel",
     description="Stripe cancel endpoint",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Payment was cancelled."},
+        ),
+    },
 )
 def return_cancel() -> MessageResponseSchema:
     return MessageResponseSchema(message="Payment was cancelled.")
@@ -125,6 +137,10 @@ def return_cancel() -> MessageResponseSchema:
     summary="Stripe Webhook",
     description="Endpoint to handle Stripe webhook events",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Webhook handled"},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request", examples={**STRIPE_ERRORS_EXAMPLES}
         ),

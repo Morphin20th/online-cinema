@@ -7,23 +7,6 @@ from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.schemas import (
-    BASE_AUTH_EXAMPLES,
-    CURRENT_USER_EXAMPLES,
-    INVALID_CREDENTIAL_EXAMPLES,
-    UserRegistrationResponseSchema,
-    UserRegistrationRequestSchema,
-    UserLoginResponseSchema,
-    UserLoginRequestSchema,
-    ChangePasswordRequestSchema,
-    PasswordResetRequestSchema,
-    PasswordResetCompleteRequestSchema,
-    LogoutRequestSchema,
-    EmailRequestSchema,
-    TokenRefreshRequestSchema,
-    TokenRefreshResponseSchema,
-    MessageResponseSchema,
-)
 from src.config import Settings
 from src.database import (
     UserModel,
@@ -42,6 +25,23 @@ from src.dependencies import (
     get_redis_client,
     get_token,
     get_current_user,
+)
+from src.schemas import (
+    BASE_AUTH_EXAMPLES,
+    CURRENT_USER_EXAMPLES,
+    INVALID_CREDENTIAL_EXAMPLES,
+    UserRegistrationResponseSchema,
+    UserRegistrationRequestSchema,
+    UserLoginResponseSchema,
+    UserLoginRequestSchema,
+    ChangePasswordRequestSchema,
+    PasswordResetRequestSchema,
+    PasswordResetCompleteRequestSchema,
+    LogoutRequestSchema,
+    EmailRequestSchema,
+    TokenRefreshRequestSchema,
+    TokenRefreshResponseSchema,
+    MessageResponseSchema,
 )
 from src.security.token_manager import JWTManager
 from src.services import EmailSender
@@ -152,6 +152,13 @@ def create_user(
     summary="Resend User Activation Email",
     description="Endpoint for resending User Activation Email",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "A new activation link has been sent.",
+                "activated": "User is already activated.",
+            },
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={"token_valid": "Activation token still valid."},
@@ -253,6 +260,10 @@ def resend_activation(
     summary="User Activation",
     description="Activate user account by verifying the provided email and activation token.",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "User account activated successfully."},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={"invalid": "Invalid or expired token"},
@@ -403,6 +414,10 @@ def login_user(
     summary="User Logout",
     description="Endpoint for user logout",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Logged out successfully."},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=BASE_AUTH_EXAMPLES
         ),
@@ -545,6 +560,10 @@ def refresh_token(
     summary="Password Change for an authenticated user",
     description="Password Change",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Password has been changed successfully!"},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=INVALID_CREDENTIAL_EXAMPLES
         ),
@@ -615,6 +634,12 @@ def change_password(
     summary="Password Reset Request",
     description="Handles the process of requesting a password reset",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "If you have an account, you will receive an email with instructions."
+            },
+        ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",
             examples={"internal_server": "Something went wrong."},
@@ -630,7 +655,7 @@ def reset_password_request(
     """
     Handles the process of requesting a password reset.
 
-    Arguments:
+    Args:
         user_data (PasswordResetRequestSchema): Contains the email for the user requesting the password reset.
         background_tasks (BackgroundTasks): Background tasks handler for asynchronous execution.
         db (Session): Dependency-injected database session for executing queries.
@@ -675,6 +700,10 @@ def reset_password_request(
     summary="Password Reset Completion",
     description="Handles the completion of a password reset process for a user.",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Your password has been successfully changed!"},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={"invalid_token_email": "Invalid email or token."},

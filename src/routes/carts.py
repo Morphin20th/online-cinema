@@ -90,6 +90,10 @@ def get_cart(
     summary="Add Movie to Cart using UUID",
     description="Endpoint for adding movies to cart by UUID",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Movie has been added to cart successfully."},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={
@@ -200,6 +204,10 @@ def add_movie_to_cart(
     summary="Delete Movie from Cart",
     description="Endpoint for removing movie from cart.",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Movie removed from cart."},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),
@@ -273,6 +281,10 @@ def remove_movie_from_cart(
     summary="Delete All Movies from Cart",
     description="Endpoint for cleaning shopping cart of movies",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "All movies removed from cart."},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),

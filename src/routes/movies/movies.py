@@ -237,6 +237,10 @@ def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSch
     summary="Delete Movie by UUID",
     description="Endpoint for deleting movies",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Movie deleted successfully"},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={

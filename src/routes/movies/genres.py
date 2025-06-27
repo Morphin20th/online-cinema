@@ -185,6 +185,10 @@ def get_movies_by_genre(
     summary="Delete Genre",
     description="Endpoint for deleting genre",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Genre deleted successfully"},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),

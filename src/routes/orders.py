@@ -218,6 +218,9 @@ def get_orders(
     summary="Cancel Order",
     description="Endpoint for cancelling user order",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK", examples={"message": "Order successfully cancelled."}
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),
@@ -293,6 +296,10 @@ def cancel_order(
     summary="Refund Request",
     description="Endpoint for movie refund",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Order successfully refunded."},
+        ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request",
             examples={

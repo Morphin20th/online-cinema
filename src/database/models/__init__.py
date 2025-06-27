@@ -1,7 +1,6 @@
 from .base import Base
+from .enums import GenderEnum, UserGroupEnum, PaymentStatusEnum, OrderStatusEnum
 from .accounts import (
-    GenderEnum,
-    UserGroupEnum,
     UserModel,
     UserGroupModel,
     ActivationTokenModel,
@@ -12,8 +11,8 @@ from .accounts import (
 from .movies import MovieModel, StarModel, DirectorModel, GenreModel, CertificationModel
 from .carts import CartModel, CartItemModel
 from .purchases import PurchaseModel
-from .orders import OrderModel, OrderItemModel, OrderStatusEnum
-from .payments import PaymentModel, PaymentItemModel, PaymentStatusEnum
+from .orders import OrderModel, OrderItemModel
+from .payments import PaymentModel, PaymentItemModel
 
 __all__ = [
     "Base",

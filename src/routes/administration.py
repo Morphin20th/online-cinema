@@ -37,7 +37,7 @@ from src.utils import Paginator, aggregate_error_examples
 router = APIRouter()
 
 
-def get_user_by_email(email: EmailStr, db: Session):
+def get_user_by_email(email: EmailStr, db: Session) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email == email).first()
 
 
@@ -49,6 +49,13 @@ def get_user_by_email(email: EmailStr, db: Session):
     summary="User Account Activation by Admin",
     description="Endpoint for activation users by admin",
     responses={
+        http_status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "User account activated successfully by admin",
+                "activated": "User account is already active",
+            },
+        ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
         ),
@@ -73,7 +80,7 @@ def get_user_by_email(email: EmailStr, db: Session):
 def admin_activate_user(
     data: BaseEmailSchema,
     db: Session = Depends(get_db),
-):
+) -> MessageResponseSchema:
     user = get_user_by_email(data.email, db)
 
     if not user:
@@ -108,6 +115,13 @@ def admin_activate_user(
     summary="Change User Group by Admin",
     description="Endpoint for changing user group by admin",
     responses={
+        http_status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "User group successfully changed to 1.",
+                "has_group": "User already belongs to group 1.",
+            },
+        ),
         http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
             description="Bad Request", examples={"invalid_group": "Invalid group ID"}
         ),
@@ -154,7 +168,7 @@ def change_user_group(
 
     if user.group_id == data.group_id:
         return MessageResponseSchema(
-            message=f"User already belongs to group {data.group_id}"
+            message=f"User already belongs to group {data.group_id}."
         )
 
     if data.group_id not in [1, 2, 3]:

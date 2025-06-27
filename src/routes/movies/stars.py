@@ -159,6 +159,10 @@ def update_stars(
     summary="Delete Star",
     description="Endpoint for deleting star",
     responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Star has been deleted successfully."},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),

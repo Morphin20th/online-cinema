@@ -19,6 +19,10 @@ class BaseAppSettings(BaseSettings):
     # App Config
     APP_URL: AnyUrl = "http://127.0.0.1:8001"
 
+    DOCS_URL: str = "/docs"
+    REDOC_URL: str = "/redoc"
+    OPENAPI_URL: str = "/openapi.json"
+
     # will use later
     DEBUG: bool = False
     TESTING: bool = False
