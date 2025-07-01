@@ -71,6 +71,16 @@ def create_checkout_session(
     current_user: UserModel = Depends(get_current_user),
     stripe_service: StripeService = Depends(get_stripe_service),
 ) -> CheckoutResponseSchema:
+    """Create a Stripe Checkout session for the user's pending order.
+
+    Args:
+        db: Database session.
+        current_user: Authenticated user.
+        stripe_service: Stripe service for session creation.
+
+    Returns:
+        Checkout URL for Stripe session.
+    """
     order = (
         db.query(OrderModel)
         .filter(
@@ -166,6 +176,18 @@ async def stripe_webhook(
     stripe_service: StripeService = Depends(get_stripe_service),
     email_manager: EmailSender = Depends(get_email_sender),
 ) -> MessageResponseSchema:
+    """Handle Stripe webhook events for payment processing.
+
+    Args:
+        request: HTTP request object.
+        background_tasks: Background tasks manager.
+        db: Database session.
+        stripe_service: Stripe service for webhook handling.
+        email_manager: Email service for notifications.
+
+    Returns:
+        Message response indicating webhook handling status.
+    """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -305,6 +327,18 @@ def get_payments(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentsListResponseSchema:
+    """Get paginated list of payments for authenticated user.
+
+    Args:
+        request: HTTP request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        Paginated list of payments.
+    """
     query = (
         db.query(PaymentModel)
         .filter(PaymentModel.user_id == current_user.id)

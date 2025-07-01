@@ -71,6 +71,15 @@ router = APIRouter()
 def create_order(
     current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> CreateOrderResponseSchema:
+    """Create a new order from user's cart if conditions are met.
+
+    Args:
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Order details with list of movies and total amount.
+    """
     cart = (
         db.query(CartModel)
         .options(joinedload(CartModel.cart_items).joinedload(CartItemModel.movie))
@@ -192,6 +201,18 @@ def get_orders(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OrderListSchema:
+    """Get paginated list of user orders.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Paginated list of user orders with navigation links.
+    """
     query = (
         db.query(OrderModel)
         .filter(OrderModel.user_id == current_user.id)
@@ -254,6 +275,16 @@ def cancel_order(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponseSchema:
+    """Cancel user's order if conditions are met.
+
+    Args:
+        order_id: ID of the order to cancel.
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Message confirming successful cancellation.
+    """
     order = (
         db.query(OrderModel)
         .filter_by(id=order_id, user_id=current_user.id)
@@ -339,6 +370,17 @@ def refund_order(
     db: Session = Depends(get_db),
     stripe_service: StripeService = Depends(get_stripe_service),
 ) -> MessageResponseSchema:
+    """Refund user's order if conditions are met.
+
+    Args:
+        order_id: ID of the order to refund.
+        current_user: Authenticated user making the request.
+        db: Database session.
+        stripe_service: Stripe payment service instance.
+
+    Returns:
+        Message confirming successful refund.
+    """
     order = (
         db.query(OrderModel)
         .filter_by(id=order_id, user_id=current_user.id)

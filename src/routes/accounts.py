@@ -80,24 +80,17 @@ def create_user(
     email_sender: EmailSender = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
-    """
-    Registers a new user using email and password.
+    """Create new user account and send activation email.
 
-    Parameters:
-    user_data: UserRegistrationRequestSchema
-        Schema containing the user's email and password for registration.
-    background_tasks: BackgroundTasks
-        Instance for managing background tasks during request handling.
-    db: Session
-        Database session dependency for database operations.
-    email_sender: EmailSender
-        Dependency for sending emails to users.
-    settings: Settings
-        Application settings used for various configurations like token lifespan.
+    Args:
+        user_data: Registration data containing email and password
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
+        settings: App settings
 
     Returns:
-    UserRegistrationResponseSchema
-        Schema containing the registered user's details.
+        Created user data
     """
     existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
@@ -182,29 +175,17 @@ def resend_activation(
     email_sender: EmailSender = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> MessageResponseSchema:
-    """
-    Handles the resend activation process for users who have not yet activated
-    their accounts.
+    """Resend activation email for unactivated user account.
 
-    Parameters:
-        user_data: EmailRequestSchema
-            Object containing the email address of the user requesting to resend
-            the activation link.
-        background_tasks: BackgroundTasks
-            Instance for handling background processing tasks such as sending
-            the activation email.
-        db: Session
-            The database session dependency to perform database operations.
-        email_sender: EmailSender
-            Service dependency used for sending email messages.
-        settings: Settings
-            Application settings dependency for retrieving configuration
-            constants.
+    Args:
+        user_data: User's email data
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
+        settings: App settings
 
     Returns:
-        MessageResponseSchema
-            Response object confirming that the activation link has been resent
-            or that the user is already activated.
+        Success message
     """
     existing_user = get_user_by_email(user_data.email, db)
 
@@ -277,20 +258,17 @@ def activate_account(
     email_sender: EmailSender = Depends(get_email_sender),
     db: Session = Depends(get_db),
 ):
-    """
-    Activate user account by verifying the provided email and activation token.
+    """Activate user account using email and token.
 
-    Arguments:
-        background_tasks (BackgroundTasks): Tasks runner that executes background
-            operations such as sending emails.
-        email (EmailStr): User's email address, extracted from the query parameters.
-        token (str): Activation token, extracted from query parameters.
-        email_sender (EmailSender): Dependency that provides email sending functionality.
-        db (Session): Database session used for querying and updating records.
+    Args:
+        background_tasks: Background tasks handler
+        email: User's email
+        token: Activation token
+        email_sender: Email service
+        db: DB session
 
     Returns:
-        MessageResponseSchema: A response indicating the success message of the
-            activation operation.
+        Success message
     """
     activation_token = (
         db.query(ActivationTokenModel)
@@ -349,23 +327,16 @@ def login_user(
     settings: Settings = Depends(get_settings),
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
 ) -> UserLoginResponseSchema:
-    """
-    Logs in a user by validating their credentials, generating access and refresh tokens,
-    and storing the refresh token in the database.
+    """Log in user and generate access and refresh tokens.
 
-    Parameters:
-    user_data : UserLoginRequestSchema
-        Data containing the user's login credentials such as email and password.
-    db : Session
-        SQLAlchemy database session for database operations.
-    settings : Settings
-        Application settings, including login configuration such as token expiration days.
-    jwt_manager : JWTManager
-        Manager for handling JWT token creation and verification.
+    Args:
+        user_data: Login credentials
+        db: DB session
+        settings: App settings
+        jwt_manager: JWT handler
 
     Returns:
-    UserLoginResponseSchema
-        Schema containing the generated JWT access token and refresh token.
+        Access and refresh tokens
     """
     user: Optional[UserModel] = get_user_by_email(user_data.email, db)
 
@@ -434,24 +405,17 @@ def logout_user(
     jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
     redis: Redis = Depends(get_redis_client),
 ) -> MessageResponseSchema:
-    """
-    Handles the user logout process by removing the refresh token from the database
-    and blacklisting the access token in Redis.
+    """Log out user by invalidating refresh and access tokens.
 
     Args:
-        user_data (LogoutRequestSchema): The schema containing the refresh token
-            to be logged out.
-        db (Session): Database session dependency used to interact with the
-            database.
-        token (str): Access token passed from the request and required for
-            blacklisting.
-        jwt_manager (JWTManager): Dependency for managing JWT (JSON Web Token)
-            operations such as decoding.
-        redis (Redis): Redis client instance used for managing the blacklist
-            records.
+        user_data: Logout request data
+        db: DB session
+        token: Access token
+        jwt_manager: JWT handler
+        redis: Redis client
 
     Returns:
-        MessageResponseSchema: A message indicating the successful logout.
+        Success message
     """
     try:
         payload = jwt_manager.decode_token(token)
@@ -722,22 +686,16 @@ def reset_password(
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
 ) -> MessageResponseSchema:
-    """
-    Handles the completion of a password reset process for a user.
+    """Complete password reset process using token and new password.
 
     Args:
-        user_data (PasswordResetCompleteRequestSchema): The request data containing
-            the email, token, and new password for the user.
-        background_tasks (BackgroundTasks): Background tasks utility used to
-            schedule email notification.
-        db (Session, optional): A database session dependency used to query and
-            update user and token records.
-        email_sender (EmailSender, optional): An email sender dependency used
-            to send a confirmation email.
+        user_data: Password reset data
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
 
     Returns:
-        MessageResponseSchema: A message indicating the success of the password
-        reset process.
+        Success message
     """
     user = get_user_by_email(user_data.email, db)
 

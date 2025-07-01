@@ -45,6 +45,15 @@ router = APIRouter()
     },
 )
 def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSchema:
+    """Create a new star (actor or actress). Only for moderators or admins.
+
+    Args:
+        data: Star name to be created.
+        db: Database session.
+
+    Returns:
+        Created star object.
+    """
     existing_star = (
         db.query(StarModel).filter(StarModel.name.ilike(f"%{data.name}%")).first()
     )
@@ -91,6 +100,15 @@ def create_star(data: BaseStarSchema, db: Session = Depends(get_db)) -> StarSche
     },
 )
 def get_star(star_id: int, db: Session = Depends(get_db)) -> StarSchema:
+    """Get a star by ID. Available for authenticated users.
+
+    Args:
+        star_id: ID of the star to retrieve.
+        db: Database session.
+
+    Returns:
+        Star object.
+    """
     existing_star = db.query(StarModel).filter(StarModel.id == star_id).first()
 
     if not existing_star:
@@ -130,6 +148,16 @@ def get_star(star_id: int, db: Session = Depends(get_db)) -> StarSchema:
 def update_stars(
     star_id: int, data: BaseStarSchema, db: Session = Depends(get_db)
 ) -> StarSchema:
+    """Update a star by ID. Only for moderators or admins.
+
+    Args:
+        star_id: ID of the star to update.
+        data: Updated star data.
+        db: Database session.
+
+    Returns:
+        Updated star object.
+    """
     star = db.query(StarModel).filter(StarModel.id == star_id).first()
 
     if not star:
@@ -181,6 +209,15 @@ def update_stars(
     },
 )
 def delete_star(star_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
+    """Delete a star by ID. Only for moderators or admins.
+
+    Args:
+        star_id: ID of the star to delete.
+        db: Database session.
+
+    Returns:
+        Message response indicating successful deletion.
+    """
     star = db.query(StarModel).filter(StarModel.id == star_id).first()
 
     if not star:
@@ -214,6 +251,17 @@ def get_stars(
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
 ) -> StarListResponseSchema:
+    """Get a list of all stars. Available for everyone.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+
+    Returns:
+        Paginated list of stars.
+    """
     query = db.query(StarModel)
 
     paginator = Paginator(request, query, page, per_page)

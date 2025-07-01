@@ -81,6 +81,16 @@ def admin_activate_user(
     data: BaseEmailSchema,
     db: Session = Depends(get_db),
 ) -> MessageResponseSchema:
+    """Activate a user account by email (admin only).
+
+    Args:
+        data: Email of the user to activate.
+        db: Database session.
+
+    Returns:
+        Success message indicating activation result.
+    """
+
     user = get_user_by_email(data.email, db)
 
     if not user:
@@ -152,6 +162,16 @@ def change_user_group(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(admin_required),
 ):
+    """Change user group by email (admin only).
+
+    Args:
+        data: Email and group ID of the user to change.
+        db: Database session.
+        current_user: Current authenticated admin user.
+
+    Returns:
+        Success message indicating group change result.
+    """
     user = get_user_by_email(data.email, db)
 
     if not user:
@@ -231,6 +251,22 @@ def get_orders(
     ),
     status: Optional[str] = Query(None, description="Filter by order status"),
 ):
+    """Get list of all orders (admin only).
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        user_id: Optional filter by user ID.
+        email: Optional filter by user email.
+        created_at: Optional filter by order date.
+        status: Optional filter by order status.
+
+    Returns:
+        List of orders with pagination info.
+    """
+
     filters = []
     base_params = {}
 
@@ -339,6 +375,16 @@ def get_orders(
 def get_specific_user_cart(
     user_id: int, db: Session = Depends(get_db)
 ) -> BaseCartSchema:
+    """Get specific user cart (admin only).
+
+    Args:
+        user_id: ID of the user whose cart to retrieve.
+        db: Database session.
+
+    Returns:
+        Cart with items for specified user.
+    """
+
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
     if not user:
@@ -385,6 +431,20 @@ def get_all_payments(
     ),
     status: Optional[str] = Query(None, description="Filter by payment status"),
 ) -> AdminPaymentsListResponseSchema:
+    """Get list of all payments (admin only).
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        email: Optional filter by user email.
+        created_at: Optional filter by payment date.
+        status: Optional filter by payment status.
+
+    Returns:
+        List of payments with pagination info.
+    """
     filters = []
     base_params = {}
 

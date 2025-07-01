@@ -80,6 +80,15 @@ def get_cart(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BaseCartSchema:
+    """Retrieve the current user's cart with associated items.
+
+    Args:
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        Cart data with list of items (if any).
+    """
     return get_cart_with_items(db, current_user.id)
 
 
@@ -133,6 +142,16 @@ def add_movie_to_cart(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ) -> MessageResponseSchema:
+    """Add a movie to the current user's cart.
+
+    Args:
+        data: Movie data to add to cart.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        Message confirming the movie was added.
+    """
     movie = db.query(MovieModel).filter(MovieModel.uuid == data.movie_uuid).first()
 
     if not movie:
@@ -237,6 +256,17 @@ def remove_movie_from_cart(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponseSchema:
+    """Remove a movie from the current user's cart.
+
+    Args:
+        movie_uuid: UUID of the movie to remove.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        Message confirming the movie was removed.
+    """
+
     cart = db.query(CartModel).filter_by(user_id=current_user.id).first()
 
     if not cart:
@@ -311,6 +341,16 @@ def remove_movie_from_cart(
 def remove_all_movies_from_cart(
     current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> MessageResponseSchema:
+    """Remove all movies from the current user's cart.
+
+    Args:
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        Message confirming all movies were removed.
+    """
+
     cart = db.query(CartModel).filter_by(user_id=current_user.id).first()
 
     if not cart:

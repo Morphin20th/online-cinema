@@ -1,4 +1,3 @@
-from .base import Base
 from .enums import GenderEnum, UserGroupEnum, PaymentStatusEnum, OrderStatusEnum
 from .accounts import (
     UserModel,
@@ -15,7 +14,6 @@ from .orders import OrderModel, OrderItemModel
 from .payments import PaymentModel, PaymentItemModel
 
 __all__ = [
-    "Base",
     "GenderEnum",
     "UserGroupEnum",
     "UserModel",

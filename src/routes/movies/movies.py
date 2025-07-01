@@ -98,6 +98,15 @@ def create_movie(
     data: CreateMovieRequestSchema,
     db: Session = Depends(get_db),
 ) -> MovieDetailSchema:
+    """Create a new movie with associated genres, stars, and directors.
+
+    Args:
+        data: Movie details to create.
+        db: Database session.
+
+    Returns:
+        The created movie with full details.
+    """
     check_movie_exists(db, data.name, data.year, data.time)
 
     try:
@@ -167,6 +176,16 @@ def update_movie(
     movie_data: UpdateMovieRequestSchema,
     db: Session = Depends(get_db),
 ) -> MovieDetailSchema:
+    """Update an existing movie with provided data.
+
+    Args:
+        movie_uuid: UUID of the movie to update.
+        movie_data: Updated movie details.
+        db: Database session.
+
+    Returns:
+        The updated movie with full details.
+    """
     movie = get_movie_by_uuid(db, movie_uuid)
     data_dict = movie_data.model_dump(exclude_unset=True)
 
@@ -210,6 +229,15 @@ def update_movie(
     },
 )
 def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSchema:
+    """Get movie details by UUID.
+
+    Args:
+        movie_uuid: UUID of the movie to retrieve.
+        db: Database session.
+
+    Returns:
+        The movie details.
+    """
     movie = (
         db.query(MovieModel)
         .options(
@@ -270,6 +298,15 @@ def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSch
 def delete_movie(
     movie_uuid: UUID, db: Session = Depends(get_db)
 ) -> MessageResponseSchema:
+    """Delete movie by UUID.
+
+    Args:
+        movie_uuid: UUID of the movie to delete.
+        db: Database session.
+
+    Returns:
+        Message response with deletion status.
+    """
     movie = db.query(MovieModel).filter(MovieModel.uuid == movie_uuid).first()
 
     if not movie:
@@ -327,6 +364,22 @@ def get_movies(
     ] = None,
     sort: Optional[str] = Query(None, description="e.g. `-imdb,year`"),
 ) -> MovieListResponseSchema:
+    """Get list of movies with optional filters and sorting.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        year: Filter by year.
+        imdb: Filter by IMDb rating.
+        genre: Filter by genre name.
+        certification: Filter by certification name.
+        sort: Sorting parameters.
+
+    Returns:
+        Paginated list of movies with metadata.
+    """
     filters = []
     base_params = {}
 

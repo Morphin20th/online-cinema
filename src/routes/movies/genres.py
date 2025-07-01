@@ -48,6 +48,15 @@ router = APIRouter()
     },
 )
 def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreSchema:
+    """Create a new genre. Only moderators or admins are allowed.
+
+    Args:
+        data: Genre name to be created.
+        db: Database session.
+
+    Returns:
+        Created genre object.
+    """
     genre = db.query(GenreModel).filter(GenreModel.name.ilike(data.name)).first()
 
     if genre:
@@ -101,6 +110,16 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
 def update_genre(
     genre_id: int, genre_data: BaseGenreSchema, db: Session = Depends(get_db)
 ) -> GenreSchema:
+    """Update an existing genre. Only moderators or admins are allowed.
+
+    Args:
+        genre_id: ID of the genre to update.
+        genre_data: New genre data.
+        db: Database session.
+
+    Returns:
+        Updated genre object.
+    """
     genre = db.query(GenreModel).filter(GenreModel.id == genre_id).first()
 
     if not genre:
@@ -150,6 +169,18 @@ def get_movies_by_genre(
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
 ) -> MoviesByGenreSchema:
+    """Get movies by genre ID. Only authenticated users are allowed.
+
+    Args:
+        genre_id: ID of the genre to get movies for.
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+
+    Returns:
+        Genre with paginated movies list.
+    """
     genre = db.query(GenreModel).filter(GenreModel.id == genre_id).first()
 
     if not genre:
@@ -207,6 +238,15 @@ def get_movies_by_genre(
     },
 )
 def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageResponseSchema:
+    """Delete an existing genre. Only moderators or admins are allowed.
+
+    Args:
+        genre_id: ID of the genre to delete.
+        db: Database session.
+
+    Returns:
+        Message confirming successful deletion.
+    """
     genre = db.query(GenreModel).filter(GenreModel.id == genre_id).first()
 
     if not genre:
@@ -239,7 +279,18 @@ def get_genres(
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
     per_page: int = Query(10, ge=1, le=20, description="Number of items per page"),
     db: Session = Depends(get_db),
-):
+) -> GenreListResponseSchema:
+    """Get list of all genres with pagination.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+
+    Returns:
+        List of genres with pagination details.
+    """
     query = (
         db.query(GenreModel, func.count(MovieModel.id).label("total_movies"))
         .outerjoin(MovieModel, GenreModel.movies)

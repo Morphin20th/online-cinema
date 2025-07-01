@@ -28,10 +28,6 @@ MEDIA_DIR = get_settings().PROJECT_ROOT / "src" / "storage" / "media" / "avatars
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def is_user_authorized(user_id: int, token_user_id: int, group_id: int) -> bool:
-    return token_user_id == user_id or group_id == 1
-
-
 def save_avatar(file: UploadFile, user_id: int) -> str:
     extension = file.filename.split(".")[-1].lower()
     unique_filename = f"user_{user_id}_{uuid.uuid4().hex}.{extension}"
@@ -89,6 +85,22 @@ def create_profile(
     info: str = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Create a user profile with optional avatar and personal details.
+
+    Args:
+        user_id: ID of the user for whom the profile is created.
+        current_user: Authenticated user (admin or profile owner).
+        first_name: Optional first name.
+        last_name: Optional last name.
+        avatar: Optional avatar image.
+        gender: Optional gender value.
+        date_of_birth: Optional date of birth.
+        info: Optional additional info.
+        db: Database session.
+
+    Returns:
+        The created user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -193,6 +205,22 @@ def update_profile(
     info: str = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Update a user profile with optional avatar and personal details.
+
+    Args:
+        user_id: ID of the user whose profile is updated.
+        current_user: Authenticated user (admin or profile owner).
+        first_name: Optional first name.
+        last_name: Optional last name.
+        avatar: Optional avatar image.
+        gender: Optional gender value.
+        date_of_birth: Optional date of birth.
+        info: Optional additional info.
+        db: Database session.
+
+    Returns:
+        The updated user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -277,6 +305,16 @@ def get_user_profile(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get a user profile with personal details.
+
+    Args:
+        user_id: ID of the user whose profile is retrieved.
+        current_user: Authenticated user (admin or profile owner).
+        db: Database session.
+
+    Returns:
+        The requested user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
