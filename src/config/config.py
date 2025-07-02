@@ -2,16 +2,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import AnyUrl
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv()
 
 
 class BaseAppSettings(BaseSettings):
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    ENVIRONMENT: str = "development"
 
     # Project Structure
     PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.resolve()

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import stripe
 from pydantic import AnyUrl
 
-from database import OrderModel
+from src.database import OrderModel
 
 
 class StripeServiceInterface(ABC):
