@@ -1,32 +1,40 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import asc, desc
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status
 
 from src.database import (
     MovieModel,
     CertificationModel,
     GenreModel,
-    StarModel,
-    DirectorModel,
     CartItemModel,
     PurchaseModel,
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
 from src.routes.movies import genre_router, star_router
-from src.schemas.common import MessageResponseSchema
-from src.schemas.movies import (
+from src.routes.movies.movie_utils import (
+    get_or_create_certification,
+    get_or_create_genres,
+    get_or_create_stars,
+    get_or_create_directors,
+    check_movie_exists,
+    get_movie_by_uuid,
+    update_movie_relations,
+)
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    MODERATOR_OR_ADMIN_EXAMPLES,
+    MessageResponseSchema,
     CreateMovieRequestSchema,
     MovieDetailSchema,
     UpdateMovieRequestSchema,
     MovieListResponseSchema,
 )
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 ALLOWED_SORT_FIELDS = {
     "name": MovieModel.name,
@@ -62,78 +70,50 @@ def parse_sort_params(sort_params: Optional[str]) -> list:
     "/create/",
     response_model=MovieDetailSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Movie",
+    description="Endpoint for creating movies",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "movie_exists": "A movie with name 'movie name' and release year '2025' "
+                "and duration '120' already exists."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during movie creation."},
+        ),
+    },
 )
 def create_movie(
     data: CreateMovieRequestSchema,
     db: Session = Depends(get_db),
 ) -> MovieDetailSchema:
-    existing_movie = (
-        db.query(MovieModel)
-        .filter(
-            MovieModel.name == data.name,
-            MovieModel.year == data.year,
-            MovieModel.time == data.time,
-        )
-        .first()
-    )
-    if existing_movie:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"A movie with name '{data.name}' and release year '{data.year}' "
-                f"and duration '{data.time}' already exists."
-            ),
-        )
+    """Create a new movie with associated genres, stars, and directors.
+
+    Args:
+        data: Movie details to create.
+        db: Database session.
+
+    Returns:
+        The created movie with full details.
+    """
+    check_movie_exists(db, data.name, data.year, data.time)
 
     try:
-        certification = (
-            db.query(CertificationModel)
-            .filter(CertificationModel.name.ilike(f"%{data.certification}%"))
-            .first()
-        )
-        if not certification:
-            certification = CertificationModel(name=data.certification)
-            db.add(certification)
-            db.flush()
-
-        genres = []
-        for genre_name in data.genres:
-            genre = (
-                db.query(GenreModel)
-                .filter(GenreModel.name.ilike(f"%{genre_name}%"))
-                .first()
-            )
-            if not genre:
-                genre = GenreModel(name=genre_name)
-                db.add(genre)
-                db.flush()
-            genres.append(genre)
-
-        stars = []
-        for star_name in data.stars:
-            star = (
-                db.query(StarModel)
-                .filter(StarModel.name.ilike(f"%{star_name}%"))
-                .first()
-            )
-            if not star:
-                star = StarModel(name=star_name)
-                db.add(star)
-                db.flush()
-            stars.append(star)
-
-        directors = []
-        for director_name in data.directors:
-            director = (
-                db.query(DirectorModel)
-                .filter(DirectorModel.name.ilike(f"%{director_name}%"))
-                .first()
-            )
-            if not director:
-                director = DirectorModel(name=director_name)
-                db.add(director)
-                db.flush()
-            directors.append(director)
+        certification = get_or_create_certification(db, data.certification)
+        genres = get_or_create_genres(db, data.genres)
+        stars = get_or_create_stars(db, data.stars)
+        directors = get_or_create_directors(db, data.directors)
 
         movie = MovieModel(
             name=data.name,
@@ -150,6 +130,7 @@ def create_movie(
             stars=stars,
             directors=directors,
         )
+
         db.add(movie)
         db.commit()
         db.refresh(movie)
@@ -157,8 +138,72 @@ def create_movie(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during movie creation.",
         )
+
+    return MovieDetailSchema.model_validate(movie)
+
+
+@router.patch(
+    "/{movie_uuid}/",
+    response_model=MovieDetailSchema,
+    dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_200_OK,
+    summary="Update Movie by UUID",
+    description="Endpoint for updating movies",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_movie_found": "Movie with the given ID was not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred while trying to update movie."
+            },
+        ),
+    },
+)
+def update_movie(
+    movie_uuid: UUID,
+    movie_data: UpdateMovieRequestSchema,
+    db: Session = Depends(get_db),
+) -> MovieDetailSchema:
+    """Update an existing movie with provided data.
+
+    Args:
+        movie_uuid: UUID of the movie to update.
+        movie_data: Updated movie details.
+        db: Database session.
+
+    Returns:
+        The updated movie with full details.
+    """
+    movie = get_movie_by_uuid(db, movie_uuid)
+    data_dict = movie_data.model_dump(exclude_unset=True)
+
+    try:
+        data_dict = update_movie_relations(db, movie, data_dict)
+
+        for key, value in data_dict.items():
+            setattr(movie, key, value)
+
+        db.commit()
+        db.refresh(movie)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error occurred while trying to update movie.",
+        )
+
     return MovieDetailSchema.model_validate(movie)
 
 
@@ -166,8 +211,33 @@ def create_movie(
     "/{movie_uuid}/",
     response_model=MovieDetailSchema,
     dependencies=[Depends(get_current_user)],
+    status_code=status.HTTP_200_OK,
+    summary="Get Movie Details",
+    description="Endpoint for getting movie details",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user."},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_movie_found": "Movie with the given ID was not found."},
+        ),
+    },
 )
 def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSchema:
+    """Get movie details by UUID.
+
+    Args:
+        movie_uuid: UUID of the movie to retrieve.
+        db: Database session.
+
+    Returns:
+        The movie details.
+    """
     movie = (
         db.query(MovieModel)
         .options(
@@ -191,10 +261,52 @@ def get_movie(movie_uuid: UUID, db: Session = Depends(get_db)) -> MovieDetailSch
     "/{movie_uuid}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
+    status_code=status.HTTP_200_OK,
+    summary="Delete Movie by UUID",
+    description="Endpoint for deleting movies",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Movie deleted successfully"},
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "movie_in_cart": "Movie is in users' carts and cannot be deleted.",
+                "movie_purchased": "Movie purchased by some user and cannot be deleted.",
+            },
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Inactive user.", **MODERATOR_OR_ADMIN_EXAMPLES},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_movie_found": "Movie with the given ID was not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred while trying to remove movie."
+            },
+        ),
+    },
 )
 def delete_movie(
     movie_uuid: UUID, db: Session = Depends(get_db)
 ) -> MessageResponseSchema:
+    """Delete movie by UUID.
+
+    Args:
+        movie_uuid: UUID of the movie to delete.
+        db: Database session.
+
+    Returns:
+        Message response with deletion status.
+    """
     movie = db.query(MovieModel).filter(MovieModel.uuid == movie_uuid).first()
 
     if not movie:
@@ -226,115 +338,19 @@ def delete_movie(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while removing movie occurred.",
+            detail="Error occurred while trying to remove movie.",
         )
 
     return MessageResponseSchema(message="Movie deleted successfully")
 
 
-@router.patch(
-    "/{movie_uuid}/",
-    response_model=MovieDetailSchema,
-    dependencies=[Depends(moderator_or_admin_required)],
+@router.get(
+    "/",
+    response_model=MovieListResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get Movie List",
+    description="Endpoint for getting movies",
 )
-def update_movie(
-    movie_uuid: UUID,
-    movie_data: UpdateMovieRequestSchema,
-    db: Session = Depends(get_db),
-) -> MovieDetailSchema:
-    movie = db.query(MovieModel).filter(MovieModel.uuid == movie_uuid).first()
-
-    if not movie:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie with the given ID was not found.",
-        )
-
-    try:
-        data_dict = movie_data.model_dump(exclude_unset=True)
-
-        if "certification" in data_dict:
-            cert = (
-                db.query(CertificationModel)
-                .filter(
-                    CertificationModel.name.ilike(f"%{data_dict['certification']}%")
-                )
-                .first()
-            )
-            if not cert:
-                cert = CertificationModel(name=data_dict["certification"])
-                db.add(cert)
-                db.flush()
-            movie.certification = cert
-            data_dict.pop("certification")
-
-        if "genres" in data_dict:
-            genres_list = []
-            for genre_name in data_dict["genres"]:
-                genre = (
-                    db.query(GenreModel)
-                    .filter(GenreModel.name.ilike(f"%{genre_name}%"))
-                    .first()
-                )
-
-                if not genre:
-                    genre = GenreModel(name=genre_name)
-                    db.add(genre)
-                    db.flush()
-                genres_list.append(genre)
-            movie.genres = genres_list
-            data_dict.pop("genres")
-
-        if "stars" in data_dict:
-            stars_list = []
-            for star_name in data_dict["stars"]:
-                star = (
-                    db.query(StarModel)
-                    .filter(StarModel.name.ilike(f"%{star_name}%"))
-                    .first()
-                )
-
-                if not star:
-                    star = StarModel(name=star_name)
-                    db.add(star)
-                    db.flush()
-                stars_list.append(star)
-            movie.stars = stars_list
-            data_dict.pop("stars")
-
-        if "directors" in data_dict:
-            directors_list = []
-            for director_name in data_dict["directors"]:
-                director = (
-                    db.query(DirectorModel)
-                    .filter(DirectorModel.name.ilike(f"%{director_name}%"))
-                    .first()
-                )
-
-                if not director:
-                    director = DirectorModel(name=director_name)
-                    db.add(director)
-                    db.flush()
-                directors_list.append(director)
-            movie.directors = directors_list
-            data_dict.pop("directors")
-
-        for key, value in data_dict.items():
-            setattr(movie, key, value)
-        db.commit()
-        db.refresh(movie)
-
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update movie.",
-        )
-
-    return MovieDetailSchema.model_validate(movie)
-
-
-@router.get("/", response_model=MovieListResponseSchema)
 def get_movies(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
@@ -348,6 +364,22 @@ def get_movies(
     ] = None,
     sort: Optional[str] = Query(None, description="e.g. `-imdb,year`"),
 ) -> MovieListResponseSchema:
+    """Get list of movies with optional filters and sorting.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        year: Filter by year.
+        imdb: Filter by IMDb rating.
+        genre: Filter by genre name.
+        certification: Filter by certification name.
+        sort: Sorting parameters.
+
+    Returns:
+        Paginated list of movies with metadata.
+    """
     filters = []
     base_params = {}
 

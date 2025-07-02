@@ -1,4 +1,3 @@
-import enum
 from datetime import datetime, timezone, date, timedelta
 from typing import List, TYPE_CHECKING
 
@@ -15,26 +14,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..models.base import Base
-from src.utils import generate_secure_token
 from src.security import hash_password, verify_password
+from src.utils import generate_secure_token
+from ..models.base import Base
+from ..models.enums import UserGroupEnum, GenderEnum
 
 if TYPE_CHECKING:
     from ..models.carts import CartModel
     from ..models.purchases import PurchaseModel
     from ..models.orders import OrderModel
     from ..models.payments import PaymentModel
-
-
-class UserGroupEnum(enum.Enum):
-    ADMIN = "admin"
-    USER = "user"
-    MODERATOR = "moderator"
-
-
-class GenderEnum(enum.Enum):
-    MAN = "man"
-    WOMAN = "woman"
 
 
 class UserGroupModel(Base):

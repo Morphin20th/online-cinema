@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from src.services import StripeService
 from src.database import (
     OrderItemModel,
     OrderModel,
@@ -19,18 +18,68 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service
-from src.schemas.common import MessageResponseSchema
-from src.schemas.orders import BaseOrderSchema
-from src.schemas.orders import CreateOrderResponseSchema, MovieSchema, OrderListSchema
-from src.utils import Paginator
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    STRIPE_ERRORS_EXAMPLES,
+    MessageResponseSchema,
+    CreateOrderResponseSchema,
+    MovieSchema,
+    OrderListSchema,
+    BaseOrderSchema,
+)
+from src.services import StripeServiceInterface
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
 
-@router.post("/create/", response_model=CreateOrderResponseSchema)
+@router.post(
+    "/create/",
+    response_model=CreateOrderResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Order",
+    description="Endpoint for creating an order if user has Cart Items.",
+    responses={
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "empty_cart": "Cart is empty.",
+                "unpaid_order": "You already have an unpaid (pending) order.",
+            },
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_cart_found": "Cart not found."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred while trying to create an order."
+            },
+        ),
+    },
+)
 def create_order(
     current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> CreateOrderResponseSchema:
+    """Create a new order from user's cart if conditions are met.
+
+    Args:
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Order details with list of movies and total amount.
+    """
     cart = (
         db.query(CartModel)
         .options(joinedload(CartModel.cart_items).joinedload(CartItemModel.movie))
@@ -103,7 +152,7 @@ def create_order(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while trying to create an order occurred.",
+            detail="Error occurred while trying to create an order.",
         )
 
     order_with_items = (
@@ -127,7 +176,24 @@ def create_order(
     )
 
 
-@router.get("/", response_model=OrderListSchema)
+@router.get(
+    "/",
+    response_model=OrderListSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get User Orders",
+    description="Endpoint for getting user orders",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+    },
+)
 def get_orders(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
@@ -135,6 +201,18 @@ def get_orders(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OrderListSchema:
+    """Get paginated list of user orders.
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Paginated list of user orders with navigation links.
+    """
     query = (
         db.query(OrderModel)
         .filter(OrderModel.user_id == current_user.id)
@@ -154,12 +232,59 @@ def get_orders(
     )
 
 
-@router.post("/cancel/{order_id}/", response_model=MessageResponseSchema)
+@router.post(
+    "/cancel/{order_id}/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Cancel Order",
+    description="Endpoint for cancelling user order",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK", examples={"message": "Order successfully cancelled."}
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_order_found": "Order with given ID was not found."},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "paid_orders": "Paid orders cannot be cancelled. Please request a refund.",
+                "cancelled": "Order is already cancelled.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred while trying to cancel the order."
+            },
+        ),
+    },
+)
 def cancel_order(
     order_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponseSchema:
+    """Cancel user's order if conditions are met.
+
+    Args:
+        order_id: ID of the order to cancel.
+        current_user: Authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        Message confirming successful cancellation.
+    """
     order = (
         db.query(OrderModel)
         .filter_by(id=order_id, user_id=current_user.id)
@@ -190,18 +315,72 @@ def cancel_order(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while trying to cancel the order occurred.",
+            detail="Error occurred while trying to cancel the order.",
         )
     return MessageResponseSchema(message="Order successfully cancelled.")
 
 
-@router.post("/refund/{order_id}/", response_model=MessageResponseSchema)
+@router.post(
+    "/refund/{order_id}/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Refund Request",
+    description="Endpoint for movie refund",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Order successfully refunded."},
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "payment": "No valid payment found to refund.",
+                **STRIPE_ERRORS_EXAMPLES,
+            },
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_order_found": "Order with given ID was not found."},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "not_paid_orders": "Order is not paid.",
+                "cancelled": "Cancelled orders cannot be refunded.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Database error during refund processing."},
+        ),
+    },
+)
 def refund_order(
     order_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
-    stripe_service: StripeService = Depends(get_stripe_service),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
 ) -> MessageResponseSchema:
+    """Refund user's order if conditions are met.
+
+    Args:
+        order_id: ID of the order to refund.
+        current_user: Authenticated user making the request.
+        db: Database session.
+        stripe_service: Stripe payment service instance.
+
+    Returns:
+        Message confirming successful refund.
+    """
     order = (
         db.query(OrderModel)
         .filter_by(id=order_id, user_id=current_user.id)

@@ -1,4 +1,3 @@
-import enum
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, List
@@ -8,17 +7,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.sqltypes import Integer, DateTime
 
 from ..models.base import Base
+from ..models.enums import OrderStatusEnum
 
 if TYPE_CHECKING:
     from ..models.accounts import UserModel
     from ..models.movies import MovieModel
     from ..models.payments import PaymentModel, PaymentItemModel
-
-
-class OrderStatusEnum(enum.Enum):
-    PENDING = "pending"
-    PAID = "paid"
-    CANCELLED = "cancelled"
 
 
 class OrderModel(Base):

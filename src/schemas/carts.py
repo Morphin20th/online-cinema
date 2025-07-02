@@ -26,4 +26,3 @@ class AddMovieToCartRequestSchema(BaseModel):
 class CartItemResponseSchema(BaseCartItemSchema):
     movie_name: str
     added_at: datetime
-

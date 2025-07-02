@@ -1,13 +1,18 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
-from fastapi.params import Depends, Query
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    BackgroundTasks,
+    Depends,
+    Query,
+    status,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.session import Session
-from starlette import status
 
-from src.services import StripeService, EmailSender
 from src.database import (
     OrderModel,
     OrderStatusEnum,
@@ -19,23 +24,63 @@ from src.database import (
 )
 from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service, get_email_sender
-from src.schemas.common import MessageResponseSchema
-from src.schemas.payments import (
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    STRIPE_ERRORS_EXAMPLES,
+    MessageResponseSchema,
     CheckoutResponseSchema,
     PaymentsListResponseSchema,
     BasePaymentSchema,
 )
-from src.utils import Paginator
+from src.services import StripeServiceInterface, EmailSenderInterface
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
 
-@router.post("/checkout-session/", response_model=CheckoutResponseSchema)
+@router.post(
+    "/checkout-session/",
+    response_model=CheckoutResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Create Stripe Checkout Session",
+    description="Endpoint for creating Stripe checkout session",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_order_found": "No pending order found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Something went wrong."},
+        ),
+    },
+)
 def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
-    stripe_service: StripeService = Depends(get_stripe_service),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
 ) -> CheckoutResponseSchema:
+    """Create a Stripe Checkout session for the user's pending order.
+
+    Args:
+        db: Database session.
+        current_user: Authenticated user.
+        stripe_service: Stripe service for session creation.
+
+    Returns:
+        Checkout URL for Stripe session.
+    """
     order = (
         db.query(OrderModel)
         .filter(
@@ -52,32 +97,97 @@ def create_checkout_session(
 
     try:
         checkout_url = stripe_service.create_checkout_session(order)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong.",
         )
 
     return CheckoutResponseSchema(checkout_url=checkout_url)
 
 
-@router.get("/success", response_model=MessageResponseSchema)
+@router.get(
+    "/success/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Success",
+    description="Stripe success endpoint",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Payment was successful! Thank you!"},
+        ),
+    },
+)
 def return_success():
     return MessageResponseSchema(message="Payment was successful! Thank you!")
 
 
-@router.get("/cancel", response_model=MessageResponseSchema)
+@router.get(
+    "/cancel/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Cancel",
+    description="Stripe cancel endpoint",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Payment was cancelled."},
+        ),
+    },
+)
 def return_cancel() -> MessageResponseSchema:
     return MessageResponseSchema(message="Payment was cancelled.")
 
 
-@router.post("/webhook/", response_model=MessageResponseSchema)
+@router.post(
+    "/webhook/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Webhook",
+    description="Endpoint to handle Stripe webhook events",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Webhook handled"},
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request", examples={**STRIPE_ERRORS_EXAMPLES}
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_order_found": "Order not found.",
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Something went wrong.",
+                "cancel": "Error occurred while cancelling expired order.",
+            },
+        ),
+    },
+)
 async def stripe_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    stripe_service: StripeService = Depends(get_stripe_service),
-    email_manager: EmailSender = Depends(get_email_sender),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
+    email_manager: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
+    """Handle Stripe webhook events for payment processing.
+
+    Args:
+        request: HTTP request object.
+        background_tasks: Background tasks manager.
+        db: Database session.
+        stripe_service: Stripe service for webhook handling.
+        email_manager: Email service for notifications.
+
+    Returns:
+        Message response indicating webhook handling status.
+    """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -177,7 +287,7 @@ async def stripe_webhook(
                     db.rollback()
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="DB error while cancelling expired order.",
+                        detail="Error occurred while cancelling expired order.",
                     )
 
     elif event_type == "payment_intent.payment_failed":
@@ -192,7 +302,24 @@ async def stripe_webhook(
     return MessageResponseSchema(message="Webhook handled")
 
 
-@router.get("/", response_model=PaymentsListResponseSchema)
+@router.get(
+    "/",
+    response_model=PaymentsListResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get Payments",
+    description="Endpoint for getting user payments",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+            },
+        ),
+    },
+)
 def get_payments(
     request: Request,
     page: int = Query(1, ge=1, description="Page number (1-based index)"),
@@ -200,6 +327,18 @@ def get_payments(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PaymentsListResponseSchema:
+    """Get paginated list of payments for authenticated user.
+
+    Args:
+        request: HTTP request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        Paginated list of payments.
+    """
     query = (
         db.query(PaymentModel)
         .filter(PaymentModel.user_id == current_user.id)

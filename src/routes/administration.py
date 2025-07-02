@@ -21,20 +21,23 @@ from src.database import (
 from src.database.session import get_db
 from src.dependencies import admin_required
 from src.routes.carts import get_cart_with_items
-from src.schemas.administration import BaseEmailSchema, ChangeGroupRequest
-from src.schemas.carts import BaseCartSchema
-from src.schemas.common import MessageResponseSchema
-from src.schemas.orders import AdminOrderListSchema, AdminOrderSchema
-from src.schemas.payments import (
+from src.schemas import (
+    ADMIN_REQUIRED_EXAMPLES,
+    BaseEmailSchema,
+    ChangeGroupRequest,
+    BaseCartSchema,
+    MessageResponseSchema,
+    AdminOrderListSchema,
+    AdminOrderSchema,
     AdminPaymentsListResponseSchema,
     PaymentListItemSchema,
 )
-from src.utils import Paginator
+from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
 
 
-def get_user_by_email(email: EmailStr, db: Session):
+def get_user_by_email(email: EmailStr, db: Session) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email == email).first()
 
 
@@ -42,16 +45,58 @@ def get_user_by_email(email: EmailStr, db: Session):
     "/accounts/activate/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="User Account Activation by Admin",
+    description="Endpoint for activation users by admin",
+    responses={
+        http_status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "User account activated successfully by admin",
+                "activated": "User account is already active",
+            },
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during user account activation."
+            },
+        ),
+    },
 )
 def admin_activate_user(
     data: BaseEmailSchema,
     db: Session = Depends(get_db),
-):
+) -> MessageResponseSchema:
+    """Activate a user account by email (admin only).
+
+    Args:
+        data: Email of the user to activate.
+        db: Database session.
+
+    Returns:
+        Success message indicating activation result.
+    """
+
     user = get_user_by_email(data.email, db)
 
     if not user:
         raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"User with given email {data.email} not found.",
         )
 
     if user.is_active:
@@ -67,23 +112,72 @@ def admin_activate_user(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error activating user account",
+            detail="Error occurred during user account activation.",
         )
 
     return MessageResponseSchema(message="User account activated successfully by admin")
 
 
-@router.post("/accounts/change-group/", response_model=MessageResponseSchema)
+@router.post(
+    "/accounts/change-group/",
+    response_model=MessageResponseSchema,
+    status_code=http_status.HTTP_200_OK,
+    summary="Change User Group by Admin",
+    description="Endpoint for changing user group by admin",
+    responses={
+        http_status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "User group successfully changed to 1.",
+                "has_group": "User already belongs to group 1.",
+            },
+        ),
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request", examples={"invalid_group": "Invalid group ID"}
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Your account is not activated.",
+                "self_group_change": "Prevent changing the group of a user with the same ID as you.",
+            },
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during user group changing."},
+        ),
+    },
+)
 def change_user_group(
     data: ChangeGroupRequest,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(admin_required),
 ):
+    """Change user group by email (admin only).
+
+    Args:
+        data: Email and group ID of the user to change.
+        db: Database session.
+        current_user: Current authenticated admin user.
+
+    Returns:
+        Success message indicating group change result.
+    """
     user = get_user_by_email(data.email, db)
 
     if not user:
         raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"User with given email {data.email} not found.",
         )
 
     if user.id == current_user.id:
@@ -94,7 +188,7 @@ def change_user_group(
 
     if user.group_id == data.group_id:
         return MessageResponseSchema(
-            message=f"User already belongs to group {data.group_id}"
+            message=f"User already belongs to group {data.group_id}."
         )
 
     if data.group_id not in [1, 2, 3]:
@@ -110,7 +204,7 @@ def change_user_group(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during user group changing.",
         )
     return MessageResponseSchema(
         message=f"User group successfully changed to {data.group_id}."
@@ -121,6 +215,29 @@ def change_user_group(
     "/orders/",
     response_model=AdminOrderListSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get List of Orders for Admin",
+    description="Endpoint for getting the list of all orders available",
+    responses={
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "invalid_date": "Invalid date format. Use YYYY-MM-DD",
+                "invalid_status": "Invalid status value. Allowed values: pending, paid, cancelled",
+            },
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during processing of orders."},
+        ),
+    },
 )
 def get_orders(
     request: Request,
@@ -134,6 +251,22 @@ def get_orders(
     ),
     status: Optional[str] = Query(None, description="Filter by order status"),
 ):
+    """Get list of all orders (admin only).
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        user_id: Optional filter by user ID.
+        email: Optional filter by user email.
+        created_at: Optional filter by order date.
+        status: Optional filter by order status.
+
+    Returns:
+        List of orders with pagination info.
+    """
+
     filters = []
     base_params = {}
 
@@ -192,7 +325,7 @@ def get_orders(
         db.rollback()
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process orders",
+            detail="Error occurred during processing of orders.",
         )
 
     orders_list = [
@@ -222,10 +355,36 @@ def get_orders(
     "/carts/{user_id}/",
     response_model=BaseCartSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get User Carts by Admin",
+    description="Endpoint for getting user carts for Admin",
+    responses={
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_user_found": "User with given ID was not found."},
+        ),
+    },
 )
 def get_specific_user_cart(
     user_id: int, db: Session = Depends(get_db)
 ) -> BaseCartSchema:
+    """Get specific user cart (admin only).
+
+    Args:
+        user_id: ID of the user whose cart to retrieve.
+        db: Database session.
+
+    Returns:
+        Cart with items for specified user.
+    """
+
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
     if not user:
@@ -241,6 +400,25 @@ def get_specific_user_cart(
     "/payments/",
     response_model=AdminPaymentsListResponseSchema,
     dependencies=[Depends(admin_required)],
+    status_code=http_status.HTTP_200_OK,
+    summary="Get List of All Payments available",
+    description="Endpoint for getting all available payments by admin",
+    responses={
+        http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={
+                "invalid_date": "Invalid date format. Use YYYY-MM-DD",
+                "invalid_status": "Invalid status value. Allowed values: successful, pending, refunded",
+            },
+        ),
+        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
+        ),
+        http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+    },
 )
 def get_all_payments(
     request: Request,
@@ -253,6 +431,20 @@ def get_all_payments(
     ),
     status: Optional[str] = Query(None, description="Filter by payment status"),
 ) -> AdminPaymentsListResponseSchema:
+    """Get list of all payments (admin only).
+
+    Args:
+        request: FastAPI request object.
+        page: Page number for pagination.
+        per_page: Number of items per page.
+        db: Database session.
+        email: Optional filter by user email.
+        created_at: Optional filter by payment date.
+        status: Optional filter by payment status.
+
+    Returns:
+        List of payments with pagination info.
+    """
     filters = []
     base_params = {}
 

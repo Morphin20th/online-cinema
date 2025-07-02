@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from src.schemas._mixins import EmailMixin
+from ._mixins import EmailMixin
 
 
 class BaseEmailSchema(EmailMixin, BaseModel):

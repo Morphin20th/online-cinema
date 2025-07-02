@@ -2,17 +2,26 @@ from fastapi import Request, HTTPException, status, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
 
+from src.config import Settings
 from src.database import UserModel
 from src.database.session import get_db
 from src.dependencies.config import get_settings, get_redis_client
-from src.config import Settings
+from src.security.interfaces import JWTAuthInterface
 from src.security.token_manager import JWTManager
 
 
 def get_jwt_auth_manager(
     settings: Settings = Depends(get_settings),
-) -> JWTManager:
+) -> JWTAuthInterface:
+    """
+    Dependency that provides an instance of the JWT authentication manager.
 
+    Args:
+        settings (Settings): Application settings with secret keys and algorithm.
+
+    Returns:
+        JWTAuthInterface: Instance of a class implementing JWT operations.
+    """
     return JWTManager(
         secret_key_access=settings.SECRET_KEY_ACCESS,
         secret_key_refresh=settings.SECRET_KEY_REFRESH,
@@ -21,6 +30,15 @@ def get_jwt_auth_manager(
 
 
 def get_token(request: Request) -> str:
+    """
+    Extracts the Bearer token from the Authorization header in the request.
+
+    Args:
+        request (Request): The current FastAPI request.
+
+    Returns:
+        str: The JWT access token.
+    """
     authorization: str = request.headers.get("Authorization")
 
     if not authorization:
@@ -42,10 +60,24 @@ def get_token(request: Request) -> str:
 
 def get_current_user(
     token: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis_client),
 ) -> type[UserModel]:
+    """
+    Dependency that retrieves the currently authenticated user from the token.
+
+    Verifies the token, checks for blacklisting, and fetches the user from the database.
+
+    Args:
+        token (str): JWT access token from the Authorization header.
+        jwt_manager (JWTAuthInterface): JWT token decoding logic.
+        db (Session): SQLAlchemy database session.
+        redis (Redis): Redis instance used for token blacklisting.
+
+    Returns:
+        UserModel: The currently authenticated and active user.
+    """
     if redis.get(f"bl:{token}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,7 +91,7 @@ def get_current_user(
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
+                detail="Invalid token payload.",
             )
 
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
@@ -67,7 +99,13 @@ def get_current_user(
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                detail="User not found.",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Inactive user.",
             )
 
         return user
@@ -77,5 +115,5 @@ def get_current_user(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="Could not validate credentials.",
         )

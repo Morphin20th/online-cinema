@@ -4,8 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-from src.schemas.common import BaseListSchema
-from src.schemas._mixins import YearMixin
+from .common import BaseListSchema
+from ._mixins import YearMixin
 
 
 # --- Models Schemas ---

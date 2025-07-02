@@ -2,15 +2,19 @@ import os
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException, status
-from fastapi.params import Depends
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, status, Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.database import GenderEnum, UserProfileModel, UserModel
 from src.database.session import get_db
 from src.dependencies import get_settings, get_current_user
-from src.schemas.profiles import ProfileSchema
+from src.schemas import (
+    CURRENT_USER_EXAMPLES,
+    PROFILE_VALIDATION_EXAMPLES,
+    ProfileSchema,
+)
+from src.utils import aggregate_error_examples
 from src.validation import (
     validate_name,
     validate_birth_date,
@@ -22,10 +26,6 @@ router = APIRouter()
 
 MEDIA_DIR = get_settings().PROJECT_ROOT / "src" / "storage" / "media" / "avatars"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def is_user_authorized(user_id: int, token_user_id: int, group_id: int) -> bool:
-    return token_user_id == user_id or group_id == 1
 
 
 def save_avatar(file: UploadFile, user_id: int) -> str:
@@ -43,6 +43,36 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
     "/users/{user_id}/profile/",
     response_model=ProfileSchema,
     status_code=status.HTTP_201_CREATED,
+    summary="User Profile Creation",
+    description="Endpoint for user profile creation",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+                "not_your_profile": "Only admin or profile owner can create profile.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_user_found": "User with given ID was not found."},
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={"profile_exists": "Profile already exists."},
+        ),
+        status.HTTP_422_UNPROCESSABLE_ENTITY: aggregate_error_examples(
+            description="Validation Error: One or more fields failed validation",
+            examples=PROFILE_VALIDATION_EXAMPLES,
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during profile creation."},
+        ),
+    },
 )
 def create_profile(
     user_id: int,
@@ -55,10 +85,26 @@ def create_profile(
     info: str = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Create a user profile with optional avatar and personal details.
+
+    Args:
+        user_id: ID of the user for whom the profile is created.
+        current_user: Authenticated user (admin or profile owner).
+        first_name: Optional first name.
+        last_name: Optional last name.
+        avatar: Optional avatar image.
+        gender: Optional gender value.
+        date_of_birth: Optional date of birth.
+        info: Optional additional info.
+        db: Database session.
+
+    Returns:
+        The created user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only create your own profile",
+            detail="Only admin or profile owner can create profile.",
         )
 
     try:
@@ -82,7 +128,8 @@ def create_profile(
     target_user = db.query(UserModel).filter_by(id=user_id).first()
     if not target_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with given ID was not found.",
         )
 
     existing_profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
@@ -110,7 +157,7 @@ def create_profile(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create profile",
+            detail="Error occurred during profile creation.",
         )
 
     return profile
@@ -120,6 +167,32 @@ def create_profile(
     "/users/{user_id}/profile/",
     response_model=ProfileSchema,
     status_code=status.HTTP_200_OK,
+    summary="User Profile Update",
+    description="Endpoint for updating user profile",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+                "not_your_profile": "Only admin or profile owner can update profile.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_profile_found": "Profile with given user ID was not found."},
+        ),
+        status.HTTP_422_UNPROCESSABLE_ENTITY: aggregate_error_examples(
+            description="Validation Error: One or more fields failed validation",
+            examples=PROFILE_VALIDATION_EXAMPLES,
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Error occurred during profile update."},
+        ),
+    },
 )
 def update_profile(
     user_id: int,
@@ -132,16 +205,33 @@ def update_profile(
     info: str = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Update a user profile with optional avatar and personal details.
+
+    Args:
+        user_id: ID of the user whose profile is updated.
+        current_user: Authenticated user (admin or profile owner).
+        first_name: Optional first name.
+        last_name: Optional last name.
+        avatar: Optional avatar image.
+        gender: Optional gender value.
+        date_of_birth: Optional date of birth.
+        info: Optional additional info.
+        db: Database session.
+
+    Returns:
+        The updated user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admin or profile owner can update profile",
+            detail="Only admin or profile owner can update profile.",
         )
 
     profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
     if not profile:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile with given user ID was not found.",
         )
 
     try:
@@ -181,7 +271,7 @@ def update_profile(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database operation failed",
+            detail="Error occurred during profile update.",
         )
 
     return profile
@@ -191,22 +281,51 @@ def update_profile(
     "/users/{user_id}/profile",
     response_model=ProfileSchema,
     status_code=status.HTTP_200_OK,
+    summary="Get User Profile",
+    description="Endpoint for getting user profile",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={
+                "inactive_user": "Inactive user.",
+                "not_your_profile": "Only admin or profile owner can view profile.",
+            },
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"no_profile_found": "Profile with given user ID was not found."},
+        ),
+    },
 )
 def get_user_profile(
     user_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get a user profile with personal details.
+
+    Args:
+        user_id: ID of the user whose profile is retrieved.
+        current_user: Authenticated user (admin or profile owner).
+        db: Database session.
+
+    Returns:
+        The requested user profile.
+    """
     if current_user.group_id != 1 and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admin or profile owner can view profile",
+            detail="Only admin or profile owner can view profile.",
         )
 
     profile = db.query(UserProfileModel).filter_by(user_id=user_id).first()
     if not profile:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile with given user ID was not found.",
         )
 
     return profile

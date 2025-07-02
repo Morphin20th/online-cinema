@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, field_serializer
 
-from src.database import GenderEnum
+from src.database.models.enums import GenderEnum
 
 
 class ProfileSchema(BaseModel):
@@ -19,3 +19,6 @@ class ProfileSchema(BaseModel):
     @field_serializer("first_name", "last_name")
     def serialize_lower(self, value: str) -> str:
         return value.lower()
+
+
+ProfileSchema.model_rebuild()

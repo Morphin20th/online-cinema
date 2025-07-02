@@ -6,17 +6,12 @@ from typing import TYPE_CHECKING, List
 from sqlalchemy import Integer, ForeignKey, DateTime, func, Enum, DECIMAL, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..models import Base
+from ..models.base import Base
+from ..models.enums import PaymentStatusEnum
 
 if TYPE_CHECKING:
     from ..models.accounts import UserModel
     from ..models.orders import OrderModel, OrderItemModel
-
-
-class PaymentStatusEnum(enum.Enum):
-    SUCCESSFUL = "successfull"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
 
 
 class PaymentModel(Base):

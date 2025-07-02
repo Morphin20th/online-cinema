@@ -2,11 +2,8 @@ import re
 from datetime import date
 from io import BytesIO
 
-from fastapi import UploadFile
-
 from PIL import Image
-
-from src.database import GenderEnum
+from fastapi import UploadFile
 
 
 def validate_name(name: str):
@@ -35,6 +32,8 @@ def validate_image(avatar: UploadFile) -> None:
 
 
 def validate_gender(gender: str) -> None:
+    from src.database import GenderEnum
+
     gender_lower = gender.lower()
     allowed_genders = [item.value for item in GenderEnum]
 

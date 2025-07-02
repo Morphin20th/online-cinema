@@ -14,3 +14,7 @@ class BaseListSchema(BaseModel):
     total_items: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ErrorResponseSchema(BaseModel):
+    detail: str

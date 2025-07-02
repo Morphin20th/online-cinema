@@ -1,13 +1,11 @@
-import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, cast
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status
 from pydantic import EmailStr
 from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from starlette import status
 
 from src.config import Settings
 from src.database import (
@@ -25,9 +23,13 @@ from src.dependencies import (
     get_settings,
     get_email_sender,
     get_redis_client,
+    get_token,
+    get_current_user,
 )
-from src.dependencies import get_token, get_current_user
-from src.schemas.accounts import (
+from src.schemas import (
+    BASE_AUTH_EXAMPLES,
+    CURRENT_USER_EXAMPLES,
+    INVALID_CREDENTIAL_EXAMPLES,
     UserRegistrationResponseSchema,
     UserRegistrationRequestSchema,
     UserLoginResponseSchema,
@@ -39,11 +41,11 @@ from src.schemas.accounts import (
     EmailRequestSchema,
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
+    MessageResponseSchema,
 )
-from src.schemas.common import MessageResponseSchema
-from src.security.token_manager import JWTManager
-from src.services import EmailSender
-from src.utils import generate_secure_token
+from src.security.interfaces import JWTAuthInterface
+from src.services import EmailSenderInterface
+from src.utils import generate_secure_token, aggregate_error_examples
 
 router = APIRouter()
 
@@ -52,19 +54,49 @@ def get_user_by_email(email, db: Session) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email.ilike(f"%{email}%")).first()
 
 
-@router.post("/register/", response_model=UserRegistrationResponseSchema)
+@router.post(
+    "/register/",
+    response_model=UserRegistrationResponseSchema,
+    summary="User Registration",
+    description="Register a new user with an email an password",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "email_conflict": "A user with this email test@example.com already exists."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred during user creation."},
+        ),
+    },
+)
 def create_user(
     user_data: UserRegistrationRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
+    """Create a new user account and send an activation email.
+
+    Args:
+        user_data: Registration data containing email and password
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
+        settings: App settings
+
+    Returns:
+        Created user data
+    """
     existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email already exists.",
+            detail=f"User with this email {user_data.email} already exists.",
         )
 
     group = db.query(UserGroupModel).filter_by(name=UserGroupEnum.USER).first()
@@ -91,9 +123,8 @@ def create_user(
         db.refresh(activation_token)
         token_value = activation_token.token
 
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         db.rollback()
-        logging.error(f"DB Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during user creation.",
@@ -107,19 +138,61 @@ def create_user(
     return UserRegistrationResponseSchema.model_validate(new_user)
 
 
-@router.post("/resend-activation/", response_model=MessageResponseSchema)
+@router.post(
+    "/resend-activation/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Resend User Activation Email",
+    description="Endpoint for resending User Activation Email",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "A new activation link has been sent.",
+                "activated": "User is already activated.",
+            },
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"token_valid": "Activation token still valid."},
+        ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "no_user_found": "User with given email test@example.com not found."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred while creating the token."},
+        ),
+    },
+)
 def resend_activation(
     user_data: EmailRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> MessageResponseSchema:
+    """Resend activation email for an unactivated user account.
+
+    Args:
+        user_data: User's email data
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
+        settings: App settings
+
+    Returns:
+        Success message
+    """
     existing_user = get_user_by_email(user_data.email, db)
 
     if not existing_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with given email {user_data.email} not found.",
         )
 
     if existing_user.is_active:
@@ -150,7 +223,7 @@ def resend_activation(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred token creation.",
+            detail="An error occurred while creating the token.",
         )
     else:
         background_tasks.add_task(
@@ -161,14 +234,42 @@ def resend_activation(
     return MessageResponseSchema(message="A new activation link has been sent.")
 
 
-@router.get("/activate/", response_model=MessageResponseSchema)
+@router.get(
+    "/activate/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="User Activation",
+    description="Activate user account by verifying the provided email and activation token.",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "User account activated successfully."},
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"invalid": "Invalid or expired token"},
+        ),
+    },
+)
 def activate_account(
     background_tasks: BackgroundTasks,
     email: EmailStr = Query(...),
     token: str = Query(...),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     db: Session = Depends(get_db),
 ):
+    """Activate user account using email and token.
+
+    Args:
+        background_tasks: Background tasks handler
+        email: User's email
+        token: Activation token
+        email_sender: Email service
+        db: DB session
+
+    Returns:
+        Success message
+    """
     activation_token = (
         db.query(ActivationTokenModel)
         .join(UserModel)
@@ -199,13 +300,44 @@ def activate_account(
     return MessageResponseSchema(message="User account activated successfully.")
 
 
-@router.post("/login/", response_model=UserLoginResponseSchema)
+@router.post(
+    "/login/",
+    response_model=UserLoginResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="User Login",
+    description="Logs in a user by validating their credentials",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized",
+            examples={"credentials": "Invalid email or password."},
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden",
+            examples={"inactive_user": "Your account is not activated."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "An error occurred while creating the token"},
+        ),
+    },
+)
 def login_user(
     user_data: UserLoginRequestSchema,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
 ) -> UserLoginResponseSchema:
+    """Log in user and generate access and refresh tokens.
+
+    Args:
+        user_data: Login credentials
+        db: DB session
+        settings: App settings
+        jwt_manager: JWT handler
+
+    Returns:
+        Access and refresh tokens
+    """
     user: Optional[UserModel] = get_user_by_email(user_data.email, db)
 
     if not user or not user.verify_password(user_data.password):
@@ -237,7 +369,7 @@ def login_user(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="An error occurred while creating the token.",
         )
 
     jwt_access_token = jwt_manager.create_access_token(data={"user_id": user.id})
@@ -246,14 +378,45 @@ def login_user(
     )
 
 
-@router.post("/logout/", response_model=MessageResponseSchema)
+@router.post(
+    "/logout/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="User Logout",
+    description="Endpoint for user logout",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Logged out successfully."},
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=BASE_AUTH_EXAMPLES
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Failed to logout. Try again."},
+        ),
+    },
+)
 def logout_user(
     user_data: LogoutRequestSchema,
     db: Session = Depends(get_db),
     token: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     redis: Redis = Depends(get_redis_client),
 ) -> MessageResponseSchema:
+    """Log out user by invalidating refresh and access tokens.
+
+    Args:
+        user_data: Logout request data
+        db: DB session
+        token: Access token
+        jwt_manager: JWT handler
+        redis: Redis client
+
+    Returns:
+        Success message
+    """
     try:
         payload = jwt_manager.decode_token(token)
     except HTTPException:
@@ -282,20 +445,48 @@ def logout_user(
     return MessageResponseSchema(message="Logged out successfully.")
 
 
-@router.post("/refresh/", response_model=TokenRefreshResponseSchema)
+@router.post(
+    "/refresh/",
+    response_model=TokenRefreshResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh Access Token",
+    description="Refreshes the access token using a valid refresh token",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=CURRENT_USER_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden", examples={"inactive_user": "Inactive user."}
+        ),
+    },
+)
 def refresh_token(
     token_data: TokenRefreshRequestSchema,
     db: Session = Depends(get_db),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     current_user: UserModel = Depends(get_current_user),
 ) -> TokenRefreshResponseSchema:
+    """
+    Refreshes the access token using a valid refresh token.
+
+    Args:
+        token_data (TokenRefreshRequestSchema): An instance containing the
+            refresh token to be validated.
+        db (Session): The database session dependency used to query or modify
+            database records.
+        jwt_manager (JWTAuthInterface): The dependency responsible for handling
+            JSON Web Token (JWT) operations, including token decoding and creation.
+        current_user (UserModel): The currently authenticated user, resolved
+            using the authentication mechanism.
+
+    Returns:
+        TokenRefreshResponseSchema: An instance containing the newly generated
+        access token.
+    """
     try:
         payload = jwt_manager.decode_token(token_data.refresh_token, is_refresh=True)
     except HTTPException:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token.",
-        )
+        raise
 
     user_id = payload.get("user_id")
     if user_id != current_user.id:
@@ -326,21 +517,59 @@ def refresh_token(
     return TokenRefreshResponseSchema(access_token=new_access_token)
 
 
-@router.post("/change-password/", response_model=MessageResponseSchema)
+@router.post(
+    "/change-password/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Password Change for an authenticated user",
+    description="Password Change",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Password has been changed successfully!"},
+        ),
+        status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
+            description="Unauthorized", examples=INVALID_CREDENTIAL_EXAMPLES
+        ),
+        status.HTTP_403_FORBIDDEN: aggregate_error_examples(
+            description="Forbidden", examples={"inactive_user": "Inactive user."}
+        ),
+        status.HTTP_409_CONFLICT: aggregate_error_examples(
+            description="Conflict",
+            examples={
+                "password_conflict": "New password cannot be same as the old one."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during new password creation."
+            },
+        ),
+    },
+)
 def change_password(
     user_data: ChangePasswordRequestSchema,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ) -> MessageResponseSchema:
-    if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user."
-        )
+    """
+    Handles the password change process for an authenticated user.
 
+    Args:
+        user_data (ChangePasswordRequestSchema): A schema containing the user's old password
+            and the new password to be set.
+        db (Session): Database session used for committing changes.
+        current_user (UserModel): The currently authenticated user.
+
+    Returns:
+        MessageResponseSchema: A message response schema indicating successful password
+        change.
+    """
     if not current_user.verify_password(user_data.old_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid current password.",
+            detail="Invalid email or password.",
         )
 
     if user_data.old_password == user_data.new_password:
@@ -356,19 +585,50 @@ def change_password(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during new password creation.",
         )
 
     return MessageResponseSchema(message="Password has been changed successfully!")
 
 
-@router.post("/reset-password/request/", response_model=MessageResponseSchema)
+@router.post(
+    "/reset-password/request/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Password Reset Request",
+    description="Handles the process of requesting a password reset",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={
+                "message": "If you have an account, you will receive an email with instructions."
+            },
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={"internal_server": "Something went wrong."},
+        ),
+    },
+)
 def reset_password_request(
     user_data: PasswordResetRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
+    """
+    Handles the process of requesting a password reset.
+
+    Args:
+        user_data (PasswordResetRequestSchema): Contains the email for the user requesting the password reset.
+        background_tasks (BackgroundTasks): Background tasks handler for asynchronous execution.
+        db (Session): Dependency-injected database session for executing queries.
+        email_sender (EmailSenderInterface): Dependency-injected email sender instance.
+
+    Returns:
+        MessageResponseSchema: Confirms that instructions for resetting the password have been sent to the
+        provided email if it is associated with an active account.
+    """
     user = get_user_by_email(user_data.email, db)
 
     if not user or not user.is_active:
@@ -397,13 +657,46 @@ def reset_password_request(
     )
 
 
-@router.post("/accounts/reset-password/complete/", response_model=MessageResponseSchema)
+@router.post(
+    "/accounts/reset-password/complete/",
+    response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Password Reset Completion",
+    description="Handles the completion of a password reset process for a user.",
+    responses={
+        status.HTTP_200_OK: aggregate_error_examples(
+            description="OK",
+            examples={"message": "Your password has been successfully changed!"},
+        ),
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"invalid_token_email": "Invalid email or token."},
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
+            description="Internal Server Error",
+            examples={
+                "internal_server": "Error occurred during new password creation."
+            },
+        ),
+    },
+)
 def reset_password(
     user_data: PasswordResetCompleteRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
+    """Complete password reset process using token and new password.
+
+    Args:
+        user_data: Password reset data
+        background_tasks: Background tasks handler
+        db: DB session
+        email_sender: Email service
+
+    Returns:
+        Success message
+    """
     user = get_user_by_email(user_data.email, db)
 
     if not user or not user.is_active:
@@ -435,7 +728,7 @@ def reset_password(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Something went wrong.",
+            detail="Error occurred during new password creation.",
         )
     else:
         background_tasks.add_task(
