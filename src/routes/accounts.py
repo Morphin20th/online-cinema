@@ -43,8 +43,8 @@ from src.schemas import (
     TokenRefreshResponseSchema,
     MessageResponseSchema,
 )
-from src.security.token_manager import JWTManager
-from src.services import EmailSender
+from src.security.interfaces import JWTAuthInterface
+from src.services import EmailSenderInterface
 from src.utils import generate_secure_token, aggregate_error_examples
 
 router = APIRouter()
@@ -77,10 +77,10 @@ def create_user(
     user_data: UserRegistrationRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> UserRegistrationResponseSchema:
-    """Create new user account and send activation email.
+    """Create a new user account and send an activation email.
 
     Args:
         user_data: Registration data containing email and password
@@ -172,10 +172,10 @@ def resend_activation(
     user_data: EmailRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     settings: Settings = Depends(get_settings),
 ) -> MessageResponseSchema:
-    """Resend activation email for unactivated user account.
+    """Resend activation email for an unactivated user account.
 
     Args:
         user_data: User's email data
@@ -255,7 +255,7 @@ def activate_account(
     background_tasks: BackgroundTasks,
     email: EmailStr = Query(...),
     token: str = Query(...),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
     db: Session = Depends(get_db),
 ):
     """Activate user account using email and token.
@@ -325,7 +325,7 @@ def login_user(
     user_data: UserLoginRequestSchema,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
 ) -> UserLoginResponseSchema:
     """Log in user and generate access and refresh tokens.
 
@@ -402,7 +402,7 @@ def logout_user(
     user_data: LogoutRequestSchema,
     db: Session = Depends(get_db),
     token: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     redis: Redis = Depends(get_redis_client),
 ) -> MessageResponseSchema:
     """Log out user by invalidating refresh and access tokens.
@@ -463,7 +463,7 @@ def logout_user(
 def refresh_token(
     token_data: TokenRefreshRequestSchema,
     db: Session = Depends(get_db),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     current_user: UserModel = Depends(get_current_user),
 ) -> TokenRefreshResponseSchema:
     """
@@ -474,7 +474,7 @@ def refresh_token(
             refresh token to be validated.
         db (Session): The database session dependency used to query or modify
             database records.
-        jwt_manager (JWTManager): The dependency responsible for handling
+        jwt_manager (JWTAuthInterface): The dependency responsible for handling
             JSON Web Token (JWT) operations, including token decoding and creation.
         current_user (UserModel): The currently authenticated user, resolved
             using the authentication mechanism.
@@ -614,7 +614,7 @@ def reset_password_request(
     user_data: PasswordResetRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
     """
     Handles the process of requesting a password reset.
@@ -623,7 +623,7 @@ def reset_password_request(
         user_data (PasswordResetRequestSchema): Contains the email for the user requesting the password reset.
         background_tasks (BackgroundTasks): Background tasks handler for asynchronous execution.
         db (Session): Dependency-injected database session for executing queries.
-        email_sender (EmailSender): Dependency-injected email sender instance.
+        email_sender (EmailSenderInterface): Dependency-injected email sender instance.
 
     Returns:
         MessageResponseSchema: Confirms that instructions for resetting the password have been sent to the
@@ -684,7 +684,7 @@ def reset_password(
     user_data: PasswordResetCompleteRequestSchema,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
     """Complete password reset process using token and new password.
 

@@ -8,12 +8,14 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from pydantic import EmailStr, AnyUrl
 
+from .email_interface import EmailSenderInterface
+
 
 class EmailSendingError(Exception):
     pass
 
 
-class EmailSender:
+class EmailSender(EmailSenderInterface):
     def __init__(
         self,
         email_host: str,
@@ -44,7 +46,7 @@ class EmailSender:
         )
         return template.render(**context)
 
-    def _send_email(self, to_email: EmailStr, subject: str, html_body: str):
+    def _send_email(self, to_email: EmailStr, subject: str, html_body: str) -> None:
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = self._from_email
@@ -58,7 +60,7 @@ class EmailSender:
             logging.error(f"Failed to send email to {to_email}: {e}")
             raise EmailSendingError(str(e))
 
-    def send_activation_email(self, to_email: EmailStr, token: str):
+    def send_activation_email(self, to_email: EmailStr, token: str) -> None:
         subject = "Account Activation"
         activation_api_url = f"{self._app_url}accounts/activate/"
         html = self._render(
@@ -92,7 +94,7 @@ class EmailSender:
         )
         self._send_email(to_email, subject, html)
 
-    def send_password_reset_complete_email(self, to_email: EmailStr):
+    def send_password_reset_complete_email(self, to_email: EmailStr) -> None:
         subject = "Password Reset Complete"
         html = self._render(
             "password_reset_completion",

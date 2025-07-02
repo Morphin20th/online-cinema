@@ -1,2 +1,2 @@
-from src.services.email_service import EmailSender
-from src.services.stripe import StripeService
+from src.services.email_service import EmailSenderInterface
+from src.services.stripe import StripeServiceInterface

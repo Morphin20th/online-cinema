@@ -6,8 +6,10 @@ from fastapi import HTTPException
 from pydantic import SecretStr
 from starlette import status
 
+from src.security.interfaces import JWTAuthInterface
 
-class JWTManager:
+
+class JWTManager(JWTAuthInterface):
     def __init__(
         self,
         secret_key_access: SecretStr,
@@ -40,14 +42,14 @@ class JWTManager:
 
     def create_access_token(
         self, data: dict, expires_delta: Optional[timedelta] = None
-    ):
+    ) -> str:
         return self.__create_token(
             data, self._secret_key_access, expires_delta or self.access_token_expiry
         )
 
     def create_refresh_token(
         self, data: dict, expires_delta: Optional[timedelta] = None
-    ):
+    ) -> str:
         return self.__create_token(
             data, self._secret_key_refresh, expires_delta or self.refresh_token_expiry
         )

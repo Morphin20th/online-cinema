@@ -27,7 +27,7 @@ from src.schemas import (
     OrderListSchema,
     BaseOrderSchema,
 )
-from src.services import StripeService
+from src.services import StripeServiceInterface
 from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
@@ -368,7 +368,7 @@ def refund_order(
     order_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
-    stripe_service: StripeService = Depends(get_stripe_service),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
 ) -> MessageResponseSchema:
     """Refund user's order if conditions are met.
 

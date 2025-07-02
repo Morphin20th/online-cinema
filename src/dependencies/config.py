@@ -1,15 +1,19 @@
 from fastapi import Depends
 from redis import Redis
 
-from src.services import EmailSender, StripeService
 from src.config import Settings
+from src.services import EmailSenderInterface, StripeServiceInterface
+from src.services.email_service import EmailSender
+from src.services.stripe import StripeService
 
 
 def get_settings() -> Settings:
     return Settings()
 
 
-def get_email_sender(settings: Settings = Depends(get_settings)) -> EmailSender:
+def get_email_sender(
+    settings: Settings = Depends(get_settings),
+) -> EmailSenderInterface:
     return EmailSender(
         email_host=settings.EMAIL_HOST,
         email_port=settings.EMAIL_PORT,
@@ -29,7 +33,9 @@ def get_redis_client(settings: Settings = Depends(get_settings)) -> Redis:
     )
 
 
-def get_stripe_service(settings: Settings = Depends(get_settings)) -> StripeService:
+def get_stripe_service(
+    settings: Settings = Depends(get_settings),
+) -> StripeServiceInterface:
     return StripeService(
         api_key=settings.STRIPE_SECRET_KEY,
         webhook_key=settings.STRIPE_WEBHOOK_SECRET,

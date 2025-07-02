@@ -2,16 +2,17 @@ from fastapi import Request, HTTPException, status, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
 
+from src.config import Settings
 from src.database import UserModel
 from src.database.session import get_db
 from src.dependencies.config import get_settings, get_redis_client
-from src.config import Settings
+from src.security.interfaces import JWTAuthInterface
 from src.security.token_manager import JWTManager
 
 
 def get_jwt_auth_manager(
     settings: Settings = Depends(get_settings),
-) -> JWTManager:
+) -> JWTAuthInterface:
 
     return JWTManager(
         secret_key_access=settings.SECRET_KEY_ACCESS,
@@ -42,7 +43,7 @@ def get_token(request: Request) -> str:
 
 def get_current_user(
     token: str = Depends(get_token),
-    jwt_manager: JWTManager = Depends(get_jwt_auth_manager),
+    jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis_client),
 ) -> type[UserModel]:

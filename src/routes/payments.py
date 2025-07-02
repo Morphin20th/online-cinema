@@ -32,7 +32,7 @@ from src.schemas import (
     PaymentsListResponseSchema,
     BasePaymentSchema,
 )
-from src.services import StripeService, EmailSender
+from src.services import StripeServiceInterface, EmailSenderInterface
 from src.utils import Paginator, aggregate_error_examples
 
 router = APIRouter()
@@ -69,7 +69,7 @@ router = APIRouter()
 def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
-    stripe_service: StripeService = Depends(get_stripe_service),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
 ) -> CheckoutResponseSchema:
     """Create a Stripe Checkout session for the user's pending order.
 
@@ -173,8 +173,8 @@ async def stripe_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    stripe_service: StripeService = Depends(get_stripe_service),
-    email_manager: EmailSender = Depends(get_email_sender),
+    stripe_service: StripeServiceInterface = Depends(get_stripe_service),
+    email_manager: EmailSenderInterface = Depends(get_email_sender),
 ) -> MessageResponseSchema:
     """Handle Stripe webhook events for payment processing.
 

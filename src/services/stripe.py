@@ -6,9 +6,10 @@ from pydantic import AnyUrl
 from starlette import status
 
 from src.database.models.orders import OrderModel
+from src.services.stripe_interface import StripeServiceInterface
 
 
-class StripeService:
+class StripeService(StripeServiceInterface):
     def __init__(self, api_key: str, webhook_key: str, app_url: AnyUrl):
         self._api_key = api_key
         self._webhook_key = webhook_key
