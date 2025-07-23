@@ -6,9 +6,9 @@ from fastapi import APIRouter, Form, UploadFile, File, HTTPException, status, De
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.database import GenderEnum, UserProfileModel, UserModel
-from src.database.session import get_db
-from src.dependencies import get_settings, get_current_user
+from src.config import get_settings
+from src.database import GenderEnum, UserProfileModel, UserModel, get_db
+from src.dependencies import get_current_user
 from src.schemas import (
     CURRENT_USER_EXAMPLES,
     PROFILE_VALIDATION_EXAMPLES,

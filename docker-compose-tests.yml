@@ -1,0 +1,70 @@
+x-common: &common
+  build:
+    context: .
+    dockerfile: docker/test/Dockerfile
+  env_file:
+    - .env.test
+  volumes:
+    - ./src:/usr/src/app/src
+    - ./alembic.ini:/usr/src/app/alembic.ini
+  depends_on:
+    - db
+    - redis
+
+services:
+  app:
+    <<: *common
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+    environment:
+      RUN_MIGRATIONS: "true"
+
+  celery:
+    <<: *common
+    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app worker --loglevel=info"
+    environment:
+      RUN_MIGRATIONS: "false"
+
+  beat:
+    <<: *common
+    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app beat --loglevel=info"
+    environment:
+      RUN_MIGRATIONS: "false"
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog_test
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+
+  stripe-cli:
+    image: stripe/stripe-cli
+    container_name: stripe_cli_test
+    env_file:
+      - .env.test
+    command: ["stripe", "listen", "--forward-to", "${STRIPE_WEBHOOK_FORWARD_URL}"]
+    depends_on:
+      - app
+
+volumes:
+  pgdata_test:

@@ -7,7 +7,7 @@ from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.config import Settings
+from src.config import Settings, get_settings
 from src.database import (
     UserModel,
     UserGroupModel,
@@ -16,11 +16,10 @@ from src.database import (
     RefreshTokenModel,
     PasswordResetTokenModel,
     CartModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import (
     get_jwt_auth_manager,
-    get_settings,
     get_email_sender,
     get_redis_client,
     get_token,

@@ -14,8 +14,7 @@ from src.schemas import (
     MoviesByGenreSchema,
     MovieDetailSchema,
 )
-from src.database import GenreModel, MovieModel
-from src.database.session import get_db
+from src.database import GenreModel, MovieModel, get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
 from src.utils import Paginator, aggregate_error_examples
 

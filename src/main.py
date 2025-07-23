@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from src.dependencies import get_settings
+from src.config import get_settings
 from src.routes import (
     account_router,
     profile_router,

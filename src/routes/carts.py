@@ -13,8 +13,8 @@ from src.database import (
     OrderModel,
     OrderStatusEnum,
     OrderItemModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import get_current_user
 from src.schemas import (
     CURRENT_USER_EXAMPLES,

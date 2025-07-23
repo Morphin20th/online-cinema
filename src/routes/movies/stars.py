@@ -3,8 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from src.database import StarModel
-from src.database.session import get_db
+from src.database import StarModel, get_db
 from src.dependencies import moderator_or_admin_required, get_current_user
 from src.schemas import (
     CURRENT_USER_EXAMPLES,

@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.database.models.accounts import UserGroupModel, UserGroupEnum
-from src.database.session import PostgreSQLSessionLocal
+from src.database.session_postgres import PostgreSQLSessionLocal
 
 
 def load_initial_groups(session: Session):

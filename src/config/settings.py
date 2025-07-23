@@ -20,6 +20,8 @@ class ProductionSettings(Settings):
         extra="ignore",
     )
 
+    DEBUG: bool = False
+
 
 class DevelopmentSettings(Settings):
     model_config = SettingsConfigDict(
@@ -27,3 +29,15 @@ class DevelopmentSettings(Settings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+
+class TestingSettings(Settings):
+    model_config = SettingsConfigDict(
+        env_file=".env.test",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    TESTING: bool = True
+    EMAIL_USE_TLS: bool = False
+    DEBUG: bool = False

@@ -2,11 +2,11 @@
 
 wait_for_postgres() {
     echo "Waiting for PostgreSQL..."
-    until nc -z $DB_HOST $DB_PORT; do
-        echo "PostgreSQL is unavailable - sleeping"
+    until PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT 1" > /dev/null 2>&1; do
+        echo "PostgreSQL is unavailable or database doesn't exist - sleeping"
         sleep 1
     done
-    echo "PostgreSQL is up - continuing"
+    echo "PostgreSQL is up and database exists - continuing"
 }
 
 wait_for_migrations() {

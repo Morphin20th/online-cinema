@@ -21,8 +21,8 @@ from src.database import (
     PaymentStatusEnum,
     PaymentModel,
     PurchaseModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service, get_email_sender
 from src.schemas import (
     CURRENT_USER_EXAMPLES,

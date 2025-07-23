@@ -12,8 +12,8 @@ from src.database import (
     GenreModel,
     CartItemModel,
     PurchaseModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
 from src.routes.movies import genre_router, star_router
 from src.routes.movies.movie_utils import (

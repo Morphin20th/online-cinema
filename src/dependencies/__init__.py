@@ -1,5 +1,4 @@
 from src.dependencies.config import (
-    get_settings,
     get_email_sender,
     get_redis_client,
     get_stripe_service,

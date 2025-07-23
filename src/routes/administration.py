@@ -17,8 +17,8 @@ from src.database import (
     PaymentModel,
     PaymentStatusEnum,
     PaymentItemModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import admin_required
 from src.routes.carts import get_cart_with_items
 from src.schemas import (
