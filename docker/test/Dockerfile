@@ -4,26 +4,21 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /usr/src/app
-ENV PYTHONPATH=/usr/src/app
+ENV PYTHONPATH=/usr/src/app/src:$PYTHONPATH
 
-RUN apt update && apt install -y \
+RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
-    netcat-openbsd \
     postgresql-client \
-    dos2unix \
-    && apt clean
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip && pip install poetry
+RUN python -m pip install --upgrade pip && pip install poetry
 RUN poetry config virtualenvs.create false
 
-COPY pyproject.toml poetry.lock ./
+COPY ./poetry.lock ./
+COPY ./pyproject.toml ./
+
 RUN poetry install --no-root --only main,dev
 
-COPY src ./src
-COPY alembic.ini ./
-
-COPY commands/entrypoint.sh /commands/entrypoint.sh
-RUN chmod +x /commands/entrypoint.sh
-
-ENTRYPOINT ["/commands/entrypoint.sh"]
+COPY ./src ./src
+COPY ./alembic.ini ./

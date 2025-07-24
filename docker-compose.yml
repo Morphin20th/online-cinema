@@ -7,42 +7,68 @@ x-common: &common
   volumes:
     - ./src:/usr/src/app/src
     - ./alembic.ini:/usr/src/app/alembic.ini
-  depends_on:
-    - redis
-    - db
 
 services:
+  db:
+    image: postgres:latest
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U \"$DB_USER\" -d \"$DB_NAME\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrations:
+    <<: *common
+    command: bash -c "alembic upgrade head"
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
     <<: *common
     command: uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
       - "8001:8001"
     environment:
-      RUN_MIGRATIONS: "true"
+      PYTHONPATH: /usr/src/app/src
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   celery:
     <<: *common
-    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app worker --loglevel=info"
+    command: celery -A src.tasks_manager.celery_app worker --loglevel=info
     environment:
-      RUN_MIGRATIONS: "false"
+      PYTHONPATH: /usr/src/app/src
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   beat:
     <<: *common
-    command: bash -c "PYTHONPATH=src celery -A tasks_manager.celery_app beat --loglevel=info"
+    command: celery -A src.tasks_manager.celery_app beat --loglevel=info
     environment:
-      RUN_MIGRATIONS: "false"
-
-  db:
-    image: postgres:latest
-    restart: always
-    environment:
-      POSTGRES_DB: online_cinema
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      PYTHONPATH: /usr/src/app/src
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   redis:
     image: redis:latest
