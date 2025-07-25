@@ -28,10 +28,14 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:latest
+    ports:
+      - "6380:6379"
+
   migrations:
     <<: *common
-    command: >
-      bash -c "alembic upgrade head"
+    command: bash -c "alembic upgrade head"
     depends_on:
       db:
         condition: service_healthy
@@ -47,46 +51,41 @@ services:
       redis:
         condition: service_started
 
-  celery:
-    <<: *common
-    command: celery -A src.tasks_manager.celery_app worker --loglevel=info
-    environment:
-      PYTHONPATH: /usr/src/app/src
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
-
-  beat:
-    <<: *common
-    command: celery -A src.tasks_manager.celery_app beat --loglevel=info
-    environment:
-      PYTHONPATH: /usr/src/app/src
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
-
-  redis:
-    image: redis:latest
-    ports:
-      - "6380:6379"
-
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - "1026:1025"
-      - "8026:8025"
-
-  stripe-cli:
-    image: stripe/stripe-cli
-    env_file:
-      - .env.test
-    command: ["stripe", "listen", "--forward-to", "http://app:8001/payments/webhook/"]
-    depends_on:
-      - app
+#  celery:
+#    <<: *common
+#    command: celery -A src.tasks_manager.celery_app worker --loglevel=info
+#    environment:
+#      PYTHONPATH: /usr/src/app/src
+#    depends_on:
+#      migrations:
+#        condition: service_completed_successfully
+#      redis:
+#        condition: service_started
+#
+#  beat:
+#    <<: *common
+#    command: celery -A src.tasks_manager.celery_app beat --loglevel=info
+#    environment:
+#      PYTHONPATH: /usr/src/app/src
+#    depends_on:
+#      migrations:
+#        condition: service_completed_successfully
+#      redis:
+#        condition: service_started
+#
+#  mailhog:
+#    image: mailhog/mailhog
+#    ports:
+#      - "1026:1025"
+#      - "8026:8025"
+#
+#  stripe-cli:
+#    image: stripe/stripe-cli
+#    env_file:
+#      - .env.test
+#    command: ["stripe", "listen", "--forward-to", "http://app:8001/payments/webhook/"]
+#    depends_on:
+#      - app
 
 volumes:
   pgdata_test:

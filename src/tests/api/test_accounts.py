@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from src.database import UserModel, ActivationTokenModel, CartModel
+from src.database import UserModel, ActivationTokenModel, CartModel, RefreshTokenModel
 from src.tests.utils.utils import make_user_payload
 
 PASSWORD_ERROR = (
@@ -158,5 +158,91 @@ def test_resend_activation_internal_server_error(client, db_session, registered_
         response = client.post(
             "accounts/resend-activation", json={"email": payload["email"]}
         )
+    assert (
+        response.status_code == 500
+    ), "Expected status code 500 Internal Server Error."
+    assert response.json()["detail"] == "An error occurred while creating the token."
 
-    assert response.status_code == 500
+
+def test_login_user_success(client, db_session, registered_and_activated_user):
+    register_payload, user = registered_and_activated_user
+
+    response = client.post("accounts/login/", json=register_payload)
+    assert response.status_code == 200, "Expected status code 200 OK."
+
+    response_data = response.json()
+    assert "access_token", "refresh_token" in response_data.keys()
+    assert response_data["token_type"] == "bearer"
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert refresh_token, "Refresh token was not created."
+
+
+def test_login_user_unauthorized(client, registered_and_activated_user):
+    payload, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/login/",
+        json={"email": payload["email"], "password": "wRongPassword12!"},
+    )
+    assert response.status_code == 401, "Expected status code 401 Unauthorized."
+    assert response.json()["detail"] == "Invalid email or password."
+
+
+def test_login_user_forbidden(client, registered_user):
+    payload, user = registered_user
+
+    response = client.post("accounts/login/", json=payload)
+    assert response.status_code == 403, "Expected status code 403 Forbidden."
+    assert response.json()["detail"] == "Your account is not activated"
+
+
+def test_login_user_internal_server_error(client, registered_and_activated_user):
+    payload, user = registered_and_activated_user
+
+    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
+        response = client.post("accounts/login", json=payload)
+    assert (
+        response.status_code == 500
+    ), "Expected status code 500 Internal Server Error."
+    assert response.json()["detail"] == "An error occurred while creating the token."
+
+
+def test_logout_user_success(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert refresh_token, "Refresh Token was not created"
+
+    response = client.post(
+        "accounts/logout/", json={"refresh_token": refresh_token.token}
+    )
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert response.json()["message"] == "Logged out successfully."
+
+
+def test_logout_user_unauthorized(client):
+    response = client.post("accounts/logout/", json={})
+    assert response.status_code == 401, "Expected status code 401 Unauthorized"
+    assert response.json()["detail"] == "Authorization header is missing"
+
+
+def test_logout_user_internal_server_error(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert refresh_token, "Refresh Token was not created"
+    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
+        response = client.post(
+            "accounts/logout/", json={"refresh_token": refresh_token.token}
+        )
+    assert (
+        response.status_code == 500
+    ), "Expected status code 500 Internal Server Error."
+    assert response.json()["detail"] == "Failed to logout. Try again."
