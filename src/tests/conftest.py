@@ -7,6 +7,8 @@ from src.dependencies import get_jwt_auth_manager
 from src.main import app
 from src.security import JWTAuthInterface
 
+from src.tests.utils import *  # noqa
+
 
 @pytest.fixture(scope="function", autouse=True)
 def reset_db():

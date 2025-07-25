@@ -1,7 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from src.database import UserModel
 from src.security import JWTAuthInterface
+from src.tests.utils.utils import make_user_payload
 
 
 def _get_access_token(user_id: int, jwt_manager: JWTAuthInterface) -> str:
@@ -42,3 +44,21 @@ def client_authorized_by_moderator(
     token = _get_access_token(user.id, jwt_manager)
     client.headers.update({"Authorization": f"Bearer {token}"})
     return client
+
+
+@pytest.fixture
+def registered_user(client, db_session):
+    payload = make_user_payload()
+    client.post("accounts/register", json=payload)
+    user = db_session.query(UserModel).filter_by(email=payload["email"]).first()
+    return payload, user
+
+
+@pytest.fixture
+def registered_and_activated_user(client, db_session):
+    payload = make_user_payload()
+    client.post("accounts/register", json=payload)
+    user = db_session.query(UserModel).filter_by(email=payload["email"]).first()
+    user.is_active = True
+    db_session.commit()
+    return payload, user

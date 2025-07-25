@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.database import UserModel, ActivationTokenModel, CartModel
+from src.tests.utils.utils import make_user_payload
 
 PASSWORD_ERROR = (
     "Password must contain 8-32 characters, "
@@ -13,10 +14,10 @@ PASSWORD_ERROR = (
 )
 
 
-def test_register_user_success(client, db_session, settings):
+def test_register_user_success(client, db_session):
     assert db_session.query(UserModel).count() == 0
 
-    payload = {"password": "Test1234!", "email": "test@user.com"}
+    payload = make_user_payload()
     response = client.post("accounts/register", json=payload)
 
     assert response.status_code == 201, "Expected status code 201 Created."
@@ -59,7 +60,7 @@ def test_register_user_success(client, db_session, settings):
     ],
 )
 def test_register_user_password_validation(client, db_session, invalid_password, error):
-    payload = {"email": "test@user.com", "password": invalid_password}
+    payload = make_user_payload(password=invalid_password)
     response = client.post("accounts/register", json=payload)
 
     assert response.status_code == 422, "Expected status code 422 for invalid password."
@@ -68,31 +69,94 @@ def test_register_user_password_validation(client, db_session, invalid_password,
     assert error in str(response_data), f"Expected error message: {error}"
 
 
-def test_register_user_conflict(client, db_session):
-    payload = {"email": "test@user.com", "password": "Test1234!"}
-    first_response = client.post("accounts/register", json=payload)
-    assert first_response.status_code == 201, "Expected status code 201 Created."
+def test_register_user_conflict(client, registered_user):
+    payload, _ = registered_user
+    response = client.post("accounts/register", json=payload)
 
-    first_user = db_session.query(UserModel).filter_by(email=payload["email"]).first()
-    assert first_user, "User was not created."
-
-    second_response = client.post("accounts/register/", json=payload)
+    assert response.status_code == 409
     assert (
-        second_response.status_code == 409
-    ), "Expected 409 for a duplicate registration."
-
-    response_data = second_response.json()
-    expected_message = f"User with this email {payload['email']} already exists."
-    assert (
-        expected_message == response_data["detail"]
-    ), f"Expected error message: {expected_message}"
+        response.json()["detail"]
+        == f"User with this email {payload['email']} already exists."
+    )
 
 
 def test_register_user_internal_server_error(client):
-    payload = {"email": "test@user.com", "password": "Test1234!"}
+    payload = make_user_payload()
 
     with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
         response = client.post("accounts/register/", json=payload)
 
     assert response.status_code == 500, "Expected status code 500 Internal Server Error"
     assert response.json()["detail"] == "An error occurred during user creation."
+
+
+def test_activate_user_account_success(client, db_session, registered_user):
+    payload, user = registered_user
+    token = db_session.query(ActivationTokenModel).filter_by(user_id=user.id).first()
+    assert token
+
+    response = client.get(
+        f"accounts/activate/?email={payload['email']}&token={token.token}"
+    )
+    assert response.status_code == 200
+    assert response.json()["message"] == "User account activated successfully."
+
+    db_session.refresh(user)
+    assert user.is_active
+    assert (
+        db_session.query(ActivationTokenModel).filter_by(user_id=user.id).first()
+        is None
+    )
+
+
+def test_activate_user_account_invalid_token(client, registered_user):
+    payload, _ = registered_user
+    response = client.get(
+        f"accounts/activate/?email={payload['email']}&token=invalid-token"
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired token"
+
+
+def test_resend_activation_success(client, db_session, registered_user):
+    payload, user = registered_user
+    db_session.delete(user.activation_token)
+    db_session.commit()
+
+    response = client.post(
+        "accounts/resend-activation", json={"email": payload["email"]}
+    )
+    assert response.status_code == 200
+    assert response.json()["message"] == "A new activation link has been sent."
+
+    new_token = (
+        db_session.query(ActivationTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert new_token and new_token.token
+
+
+def test_resend_activation_already_activated(
+    client, db_session, registered_and_activated_user
+):
+    payload, user = registered_and_activated_user
+    db_session.delete(user.activation_token)
+    db_session.commit()
+
+    response = client.post(
+        "accounts/resend-activation", json={"email": payload["email"]}
+    )
+    assert response.status_code == 200
+    assert response.json()["message"] == "User is already activated."
+
+
+def test_resend_activation_internal_server_error(client, db_session, registered_user):
+    payload, user = registered_user
+    db_session.delete(user.activation_token)
+    db_session.commit()
+
+    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
+        response = client.post(
+            "accounts/resend-activation", json={"email": payload["email"]}
+        )
+
+    assert response.status_code == 500
