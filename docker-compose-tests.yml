@@ -15,15 +15,15 @@ services:
     env_file:
       - .env.test
     environment:
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: test_db
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_test:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "sh -c 'pg_isready -U \"$DB_USER\" -d \"$DB_NAME\"'" ]
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U \"$DB_USER\" -d test_db'" ]
       interval: 5s
       timeout: 5s
       retries: 10

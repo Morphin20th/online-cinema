@@ -1,5 +1,6 @@
 from pydantic_settings import SettingsConfigDict
 
+from src.config.api import APISettings
 from src.config.celery import CelerySettings
 from src.config.database import DatabaseSettings
 from src.config.email import EmailSettings
@@ -8,7 +9,12 @@ from src.config.security import SecuritySettings
 
 
 class Settings(
-    SecuritySettings, DatabaseSettings, CelerySettings, EmailSettings, PaymentSettings
+    SecuritySettings,
+    DatabaseSettings,
+    CelerySettings,
+    EmailSettings,
+    PaymentSettings,
+    APISettings,
 ):
     pass
 
@@ -39,5 +45,6 @@ class TestingSettings(Settings):
     )
 
     TESTING: bool = True
-    EMAIL_USE_TLS: bool = False
     DEBUG: bool = False
+    DB_NAME: str = "test_db"
+    DB_HOST: str = "db"

@@ -1,23 +1,51 @@
-from typing import Any, Generator
+from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, Connection
 from sqlalchemy.orm import sessionmaker, Session
 
-from src.config import Settings, settings
+from src.config import get_settings
+from src.database import Base
+
+settings = get_settings()
+
+POSTGRES_DATABASE_URL = str(settings.DATABASE_URL)
+engine = create_engine(POSTGRES_DATABASE_URL)
+postgres_connection = engine.connect()
+PostgreSQLSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=postgres_connection
+)
 
 
-def create_postgres_session(project_settings: Settings):
-    database_url = str(project_settings.DATABASE_URL)
-    engine = create_engine(database_url)
-    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-PostgreSQLSessionLocal = create_postgres_session(settings)
-
-
-def get_postgres_db() -> Generator[Session, Any, None]:
+def get_postgres_db() -> Session:
     db = PostgreSQLSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def get_postgres_db_contextmanager() -> Session:
+    db = PostgreSQLSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def load_user_groups(conn: Connection):
+    conn.execute(
+        text(
+            "INSERT INTO user_groups(id, name) "
+            "VALUES (1, 'ADMIN'), (2, 'USER'), (3, 'MODERATOR')"
+            "ON CONFLICT(id) DO NOTHING"
+        )
+    )
+
+
+def reset_postgres_database():
+    with engine.connect() as connection:
+        with connection.begin():
+            Base.metadata.drop_all(bind=connection)
+            Base.metadata.create_all(connection)
+            load_user_groups(connection)
