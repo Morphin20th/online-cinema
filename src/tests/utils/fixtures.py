@@ -14,6 +14,11 @@ def _get_access_token(user_id: int, jwt_manager: JWTAuthInterface) -> str:
 
 
 @pytest.fixture
+def token():
+    return "test.token.value"
+
+
+@pytest.fixture
 def client_authorized_by_user(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:

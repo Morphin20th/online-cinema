@@ -1,10 +1,13 @@
-from datetime import timezone, datetime
+from datetime import timezone, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
+from database import PasswordResetTokenModel
 from src.database import UserModel, ActivationTokenModel, CartModel, RefreshTokenModel
+from src.dependencies import get_redis_client
+from src.main import app
 from src.tests.utils.utils import make_user_payload
 
 PASSWORD_ERROR = (
@@ -12,6 +15,8 @@ PASSWORD_ERROR = (
     "at least one uppercase and lowercase letter, "
     "a number and a special character"
 )
+PASSWORD = "Test1234!"
+INVALID_TOKEN = "invalid_token_value"
 
 
 def test_register_user_success(client, db_session):
@@ -210,7 +215,8 @@ def test_login_user_internal_server_error(client, registered_and_activated_user)
     assert response.json()["detail"] == "An error occurred while creating the token."
 
 
-def test_logout_user_success(client_authorized_by_user, db_session):
+def test_logout_user_success(client_authorized_by_user, db_session, mock_redis):
+    app.dependency_overrides[get_redis_client] = lambda: mock_redis
     client, user = client_authorized_by_user
 
     refresh_token = (
@@ -224,14 +230,21 @@ def test_logout_user_success(client_authorized_by_user, db_session):
     assert response.status_code == 200, "Expected status code 200 OK."
     assert response.json()["message"] == "Logged out successfully."
 
+    app.dependency_overrides.clear()
 
-def test_logout_user_unauthorized(client):
+
+def test_logout_user_unauthorized(client, mock_redis):
+    app.dependency_overrides[get_redis_client] = lambda: mock_redis
     response = client.post("accounts/logout/", json={})
     assert response.status_code == 401, "Expected status code 401 Unauthorized"
     assert response.json()["detail"] == "Authorization header is missing"
+    app.dependency_overrides.clear()
 
 
-def test_logout_user_internal_server_error(client_authorized_by_user, db_session):
+def test_logout_user_internal_server_error(
+    client_authorized_by_user, db_session, mock_redis
+):
+    app.dependency_overrides[get_redis_client] = lambda: mock_redis
     client, user = client_authorized_by_user
 
     refresh_token = (
@@ -246,3 +259,276 @@ def test_logout_user_internal_server_error(client_authorized_by_user, db_session
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
     assert response.json()["detail"] == "Failed to logout. Try again."
+    app.dependency_overrides.clear()
+
+
+def test_refresh_token_success(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    response = client.post(
+        "accounts/refresh/", json={"refresh_token": refresh_token.token}
+    )
+    assert response.status_code == 200, "Expected status code 200 OK."
+    response_data = response.json()
+    assert response_data["access_token"], "Access Token was not returned."
+
+    new_refresh_token = db_session.query(RefreshTokenModel).filter_by(user_id=user.id)
+    assert (
+        new_refresh_token != refresh_token
+    ), "Expected new refresh token to be created."
+
+
+def test_refresh_token_not_found(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    token = refresh_token.token
+    db_session.delete(refresh_token)
+    db_session.commit()
+
+    response = client.post("accounts/refresh/", json={"refresh_token": token})
+    assert response.status_code == 404, "Expected status code 404 Not Found."
+    assert response.json()["detail"] == "Refresh token not found."
+
+
+def test_refresh_token_unauthorized_not_belong(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    response = client.post(
+        "accounts/refresh/",
+        json={
+            "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJ1c2VyX2lkIjoyLCJleHAiOjE3NTQxMjg2NDJ9."
+            "wpXdu2BtPNWNvBXfTquUu4vAVnpcWVZC-CbDjXBQjh0"
+        },
+    )
+    assert response.status_code == 401, "Expected status code 401 Unauthorized."
+    assert (
+        response.json()["detail"] == "Token does not belong to the authenticated user."
+    )
+
+
+def test_refresh_token_unauthorized_expired(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
+    )
+    refresh_token.expires_at = refresh_token.expires_at - timedelta(days=2)
+    db_session.commit()
+
+    response = client.post(
+        "accounts/refresh/", json={"refresh_token": refresh_token.token}
+    )
+    assert response.status_code == 401, "Expected status code 401 Unauthorized."
+    assert response.json()["detail"] == "Refresh token expired."
+
+
+def test_change_password_success(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+    payload = {
+        "email": user.email,
+        "old_password": PASSWORD,
+        "new_password": "Test123!",
+    }
+    response = client.post("accounts/change-password/", json=payload)
+
+    assert response.status_code == 200, "Expected status code 200 OK."
+    response_data = response.json()
+    assert response_data["message"] == "Password has been changed successfully!"
+
+
+def test_change_password_conflict(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+    payload = {
+        "email": user.email,
+        "old_password": PASSWORD,
+        "new_password": PASSWORD,
+    }
+    response = client.post("accounts/change-password/", json=payload)
+
+    assert response.status_code == 409, "Expected status code 200 Conflict."
+    response_data = response.json()
+    assert response_data["detail"] == "New password cannot be same as the old one."
+
+
+def test_change_password_internal_server_error(client_authorized_by_user, db_session):
+    client, user = client_authorized_by_user
+
+    payload = {
+        "email": user.email,
+        "old_password": PASSWORD,
+        "new_password": "Test123!",
+    }
+    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
+        response = client.post("accounts/change-password", json=payload)
+
+    assert (
+        response.status_code == 500
+    ), "Expected status code 500 Internal Server Error."
+    assert response.json()["detail"] == "Error occurred during new password creation."
+
+
+def test_reset_password_request_inactive_user(client, registered_user, db_session):
+    _, user = registered_user
+
+    response = client.post(
+        "accounts/reset-password/request/", json={"email": user.email}
+    )
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert (
+        response.json()["message"]
+        == "If you have an account, you will receive an email with instructions."
+    )
+    reset_token = (
+        db_session.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert not reset_token, "Password Reset token was crated."
+
+
+def test_reset_password_request_active_user(
+    client, registered_and_activated_user, db_session
+):
+    _, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/reset-password/request/", json={"email": user.email}
+    )
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert (
+        response.json()["message"]
+        == "If you have an account, you will receive an email with instructions."
+    )
+    reset_token = (
+        db_session.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+    )
+    assert reset_token, "Password Reset token was not crated."
+
+
+@pytest.fixture
+def reset_token(db_session, registered_and_activated_user):
+    _, user = registered_and_activated_user
+    token_record = PasswordResetTokenModel(user_id=user.id)
+    db_session.add(token_record)
+    db_session.commit()
+    return token_record.token
+
+
+@pytest.fixture
+def expired_token(db_session, registered_and_activated_user):
+    _, user = registered_and_activated_user
+    token_record = PasswordResetTokenModel(
+        user_id=user.id, expires_at=datetime.now(timezone.utc) - timedelta(minutes=10)
+    )
+    db_session.add(token_record)
+    db_session.commit()
+    return token_record.token
+
+
+def test_successful_password_reset(
+    client, registered_and_activated_user, reset_token, db_session
+):
+    payload, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/reset-password/complete/",
+        json={
+            "email": payload["email"],
+            "token": reset_token,
+            "password": PASSWORD,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Your password has been successfully changed!"
+
+    db_session.refresh(user)
+
+    token = db_session.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+    assert token is None
+
+
+def test_reset_password_invalid_email(
+    client, registered_and_activated_user, reset_token
+):
+    _, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/reset-password/complete/",
+        json={
+            "email": "wrong@example.com",
+            "token": reset_token,
+            "password": PASSWORD,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid email or token."
+
+
+def test_reset_password_inactive_user(client, registered_user, db_session):
+    payload, user = registered_user
+
+    token_record = PasswordResetTokenModel(user_id=user.id)
+    db_session.add(token_record)
+    db_session.commit()
+    token_value = token_record.token
+
+    response = client.post(
+        "/accounts/reset-password/complete/",
+        json={
+            "email": payload["email"],
+            "token": token_value,
+            "password": PASSWORD,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid email or token."
+
+    db_session.refresh(user)
+    assert user.password != PASSWORD
+
+
+def test_reset_password_invalid_token(
+    client, registered_and_activated_user, reset_token
+):
+    payload, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/reset-password/complete/",
+        json={
+            "email": payload["email"],
+            "token": INVALID_TOKEN,
+            "password": PASSWORD,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid email or token."
+
+
+def test_reset_password_expired_token(
+    client, registered_and_activated_user, expired_token, db_session
+):
+    payload, user = registered_and_activated_user
+
+    response = client.post(
+        "accounts/reset-password/complete/",
+        json={
+            "email": payload["email"],
+            "token": expired_token,
+            "password": PASSWORD,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid email or token."
+
+    token = db_session.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+    assert token is None

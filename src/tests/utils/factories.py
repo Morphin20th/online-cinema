@@ -8,6 +8,7 @@ def _create_user(
     db: Session, jwt_manager: JWTAuthInterface, email: str, password: str, group_id: int
 ) -> UserModel:
     user = UserModel.create(email, password, group_id)
+    user.is_active = True
     db.add(user)
     db.flush()
 

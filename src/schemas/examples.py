@@ -9,7 +9,6 @@ CURRENT_USER_EXAMPLES = {
     **BASE_AUTH_EXAMPLES,
     "blacklisted": "Token has been blacklisted.",
     "mismatch": "Token does not belong to the authenticated user.",
-    "refresh_missing": "Refresh token not found.",
     "refresh_expired": "Refresh token expired.",
 }
 
