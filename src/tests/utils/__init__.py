@@ -5,6 +5,7 @@ from src.tests.utils.fixtures import (
     client_authorized_by_admin,
     client_authorized_by_moderator,
     token,
+    regular_user,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "client_authorized_by_moderator",
     "client_authorized_by_admin",
     "token",
+    "regular_user",
 ]

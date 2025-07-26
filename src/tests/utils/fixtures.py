@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from database import UserProfileModel
 from src.database import UserModel
 from src.security import JWTAuthInterface
 from src.tests.utils.utils import make_user_payload
@@ -72,3 +73,23 @@ def registered_and_activated_user(
     user.is_active = True
     db_session.commit()
     return payload, user
+
+
+@pytest.fixture
+def regular_user(db_session: Session) -> UserModel:
+    user = UserModel.create(
+        group_id=2, email="test1@test.com", new_password="Test1234!"
+    )
+    user.is_active = True
+    db_session.add(user)
+    db_session.commit()
+    db_session.add(
+        UserProfileModel(
+            user_id=user.id,
+            first_name="Original",
+            last_name="User",
+            info="Regular user profile",
+        )
+    )
+    db_session.commit()
+    return user

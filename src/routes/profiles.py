@@ -40,7 +40,7 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
 
 
 @router.post(
-    "/users/{user_id}/profile/",
+    "/users/{user_id}/",
     response_model=ProfileSchema,
     status_code=status.HTTP_201_CREATED,
     summary="User Profile Creation",
@@ -164,7 +164,7 @@ def create_profile(
 
 
 @router.patch(
-    "/users/{user_id}/profile/",
+    "/users/{user_id}/",
     response_model=ProfileSchema,
     status_code=status.HTTP_200_OK,
     summary="User Profile Update",
@@ -278,7 +278,7 @@ def update_profile(
 
 
 @router.get(
-    "/users/{user_id}/profile",
+    "/users/{user_id}/",
     response_model=ProfileSchema,
     status_code=status.HTTP_200_OK,
     summary="Get User Profile",
