@@ -4,8 +4,13 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from database import PasswordResetTokenModel
-from src.database import UserModel, ActivationTokenModel, CartModel, RefreshTokenModel
+from src.database import (
+    UserModel,
+    ActivationTokenModel,
+    CartModel,
+    PasswordResetTokenModel,
+    RefreshTokenModel,
+)
 from src.dependencies import get_redis_client
 from src.main import app
 from src.tests.utils.utils import make_user_payload

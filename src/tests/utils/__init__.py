@@ -6,6 +6,14 @@ from src.tests.utils.fixtures import (
     client_authorized_by_moderator,
     token,
     regular_user,
+    star_fixture,
+    director_fixture,
+    genre_fixture,
+    certification_fixture,
+    movie_fixture,
+    cart_fixture,
+    cart_item_fixture,
+    purchased_movie_fixture,
 )
 
 __all__ = [
@@ -16,4 +24,12 @@ __all__ = [
     "client_authorized_by_admin",
     "token",
     "regular_user",
+    "star_fixture",
+    "director_fixture",
+    "genre_fixture",
+    "certification_fixture",
+    "movie_fixture",
+    "cart_fixture",
+    "cart_item_fixture",
+    "purchased_movie_fixture",
 ]

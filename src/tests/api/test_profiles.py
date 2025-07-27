@@ -6,7 +6,6 @@ from PIL import Image
 from sqlalchemy.exc import SQLAlchemyError
 
 import src.tests.examples.profile_examples as examples
-from database import UserModel
 from src.database import UserProfileModel, GenderEnum
 from src.tests.examples.profile_examples import invalid_name_example
 
@@ -286,3 +285,4 @@ def test_get_profile_not_found(
 
     response = client.get(f"{URL_PREFIX}999/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
+    assert response.json()["detail"] == "Profile with given user ID was not found."

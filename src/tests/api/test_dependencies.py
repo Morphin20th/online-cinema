@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, Request
 
+from dependencies import admin_required, moderator_or_admin_required
 from src.dependencies import get_current_user, get_token
 
 
@@ -120,3 +121,34 @@ def test_get_current_user_not_found(db_session, jwt_manager, mock_redis):
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "User not found."
+
+
+def test_admin_required_with_admin(client_authorized_by_admin):
+    _, user = client_authorized_by_admin
+    assert admin_required(user) == user
+
+
+def test_admin_required_with_non_admin(client_authorized_by_user):
+    _, user = client_authorized_by_user
+    with pytest.raises(HTTPException) as exc_info:
+        admin_required(user)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Access denied. Admin privileges required"
+
+
+def test_moderator_or_admin_required_with_admin(client_authorized_by_admin):
+    _, user = client_authorized_by_admin
+    assert moderator_or_admin_required(user) == user
+
+
+def test_moderator_or_admin_required_with_moderator(client_authorized_by_moderator):
+    _, user = client_authorized_by_moderator
+    assert moderator_or_admin_required(user) == user
+
+
+def test_moderator_or_admin_required_with_user(client_authorized_by_user):
+    _, user = client_authorized_by_user
+    with pytest.raises(HTTPException) as exc_info:
+        moderator_or_admin_required(user)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Access denied. Moderator or admin required."
