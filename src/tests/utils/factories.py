@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
-from src.security import JWTAuthInterface
 from src.database import UserModel, RefreshTokenModel
+from src.security import JWTAuthInterface
 
 
 def _create_user(

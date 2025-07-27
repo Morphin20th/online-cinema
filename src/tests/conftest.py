@@ -11,7 +11,7 @@ from src.database import reset_database, get_postgres_db_contextmanager
 from src.main import app
 from src.security import JWTAuthInterface
 from src.tests.stubs import StubEmailService
-from src.tests.utils import *  # noqa
+from src.tests.utils.fixtures import *  # noqa
 
 
 @pytest.fixture

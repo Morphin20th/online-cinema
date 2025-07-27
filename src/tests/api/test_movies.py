@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -279,3 +280,61 @@ def test_delete_movie_bad_request_purchased(
         response.json()["detail"]
         == "Movie purchased by some user and cannot be deleted."
     )
+
+
+@pytest.mark.parametrize(
+    "filter_key, filter_value, expected_count",
+    [
+        ("year", 2001, 1),
+        ("imdb", 7.0, 3),
+        ("genre", "horror", 3),
+        ("certification", "pg-13", 3),
+    ],
+)
+def test_get_movies_with_filters(
+    filter_key,
+    filter_value,
+    expected_count,
+    db_session,
+    movies_fixture,
+    client,
+):
+    movies_fixture(3)
+    response = client.get(f"{URL_PREFIX}?{filter_key}={filter_value}")
+    assert response.status_code == 200, "Expected status code 200 OK."
+    data = response.json()
+    print(data["movies"])
+    assert "movies" in data
+    assert len(data["movies"]) == expected_count
+
+
+def test_get_movies_with_multiple_filters(db_session, movies_fixture, client):
+    movies_fixture(3)
+    response = client.get(
+        f"{URL_PREFIX}?year=2002&imdb=7&genre=horror&certification=pg-13"
+    )
+    assert response.status_code == 200, "Expected status code 200 OK."
+    data = response.json()
+    print(data["movies"])
+    assert "movies" in data
+    assert len(data["movies"]) == 1
+
+
+def test_get_movies_with_sorting(db_session, movies_fixture, client):
+    movies_fixture(3)
+    response = client.get(f"{URL_PREFIX}?sort=-year")
+    assert response.status_code == 200, "Expected status code 200 OK."
+    data = response.json()
+    years = [movie["year"] for movie in data["movies"]]
+    assert years == sorted(years, reverse=True)
+
+
+def test_get_movies_with_invalid_filter_does_not_crash(
+    db_session, movies_fixture, client
+):
+    movies_fixture(3)
+    response = client.get(f"{URL_PREFIX}?genre=nogenre")
+    assert response.status_code == 200, "Expected status code 200 OK."
+    data = response.json()
+    assert "movies" in data
+    assert len(data["movies"]) == 0
