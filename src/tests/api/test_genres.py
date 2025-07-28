@@ -15,7 +15,8 @@ def test_create_genre_success(db_session, client_authorized_by_moderator):
     genre_name = "genre"
     response = client.post(f"{URL_PREFIX}create/", json={"name": genre_name})
     assert response.status_code == 201, "Expected status code 200 OK."
-    assert "id", "name" in response.json()
+    data = response.json()
+    assert "id" in data and "name" in data
 
     genre = db_session.query(GenreModel).filter_by(name=genre_name).first()
 
@@ -36,7 +37,7 @@ def test_create_genre_conflict(
     )
 
 
-def test_create_genre(db_session, client_authorized_by_moderator):
+def test_create_genre_internal_server_error(db_session, client_authorized_by_moderator):
     client, _ = client_authorized_by_moderator
 
     genre_name = "genre"
@@ -46,7 +47,7 @@ def test_create_genre(db_session, client_authorized_by_moderator):
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
-    assert response.json()["detail"] == "Error occurred during genre creation."
+    assert response.json()["detail"] == "Error occurred while trying to create genre."
 
 
 def test_update_genre_success(
@@ -94,10 +95,10 @@ def test_update_genre_internal_server_error(
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
-    assert response.json()["detail"] == "Error occurred during genre update."
+    assert response.json()["detail"] == "Error occurred while trying to update genre."
 
 
-def test_get_genres(db_session, client, genres_fixture):
+def test_get_genres_success(db_session, client, genres_fixture):
     genres_fixture(10)
     response = client.get(f"{URL_PREFIX}")
     assert response.status_code == 200, "Expected status code 200 OK."
@@ -144,7 +145,7 @@ def test_delete_genre_internal_server_error(
         response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "Error occurred during genre deleting."
+    assert response.json()["detail"] == "Error occurred while trying to delete genre."
 
     db_session.rollback()  # do not remove
 

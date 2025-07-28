@@ -23,7 +23,7 @@ def assert_movie_response_matches_input(expected: dict, actual: dict):
     assert expected["year"] == actual["year"]
     assert expected["time"] == actual["time"]
     assert expected["imdb"] == actual["imdb"]
-    assert expected.get("votes", 0) == actual["votes"]
+    assert expected["votes"] == actual["votes"]
 
     assert str(expected["price"]) == actual["price"], "Price mismatch"
     assert expected["certification"] == actual["certification"]["name"]

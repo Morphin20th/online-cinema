@@ -3,8 +3,12 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, Request
 
-from dependencies import admin_required, moderator_or_admin_required
-from src.dependencies import get_current_user, get_token
+from src.dependencies import (
+    get_current_user,
+    get_token,
+    admin_required,
+    moderator_or_admin_required,
+)
 
 
 def test_get_current_user_success(

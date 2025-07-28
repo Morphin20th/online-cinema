@@ -72,7 +72,7 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre creation.",
+            detail="Error occurred while trying to create genre.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -135,7 +135,7 @@ def update_genre(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre update.",
+            detail="Error occurred while trying to update genre.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -260,7 +260,7 @@ def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageRespons
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre deleting.",
+            detail="Error occurred while trying to delete genre.",
         )
 
     return MessageResponseSchema(message="Genre deleted successfully")
