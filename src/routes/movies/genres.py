@@ -209,7 +209,7 @@ def get_movies_by_genre(
 
 
 @router.delete(
-    "/genres/{genre_id}/",
+    "/{genre_id}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
     summary="Delete Genre",

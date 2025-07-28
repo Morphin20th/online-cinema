@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import src.tests.examples.movie_examples as examples
-from schemas import MovieDetailSchema
+from src.schemas import MovieDetailSchema
 from src.database import (
     MovieModel,
     CertificationModel,

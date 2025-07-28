@@ -8,6 +8,8 @@ from src.tests.utils.fixtures.movies import (
     cart_fixture,
     cart_item_fixture,
     purchased_movie_fixture,
+    genres_fixture,
+    stars_fixture,
 )
 from src.tests.utils.fixtures.clients import (
     registered_user,
@@ -20,6 +22,7 @@ from src.tests.utils.fixtures.clients import (
 )
 
 __all__ = [
+    # clients
     "registered_user",
     "registered_and_activated_user",
     "client_authorized_by_user",
@@ -27,6 +30,7 @@ __all__ = [
     "client_authorized_by_admin",
     "token",
     "regular_user",
+    # movies
     "star_fixture",
     "director_fixture",
     "genre_fixture",
@@ -36,4 +40,6 @@ __all__ = [
     "cart_fixture",
     "cart_item_fixture",
     "purchased_movie_fixture",
+    "genres_fixture",
+    "stars_fixture",
 ]

@@ -13,39 +13,15 @@ from src.database import (
 )
 
 
-@pytest.fixture
-def director_fixture(db_session: Session) -> DirectorModel:
-    director = DirectorModel(name="director")
-    db_session.add(director)
-    db_session.commit()
-    db_session.refresh(director)
-    return director
-
-
-@pytest.fixture
-def certification_fixture(db_session: Session) -> CertificationModel:
-    certification = CertificationModel(name="pg-13")
-    db_session.add(certification)
-    db_session.commit()
-    db_session.refresh(certification)
-    return certification
-
-
-@pytest.fixture
-def genre_fixture(db_session: Session) -> StarModel:
-    genre = GenreModel(name="horror")
+def create_genre(db_session: Session, index: int = 0, name="test") -> GenreModel:
+    genre = GenreModel(name=f"{name}{index if index != 0 else ''}")
     db_session.add(genre)
-    db_session.commit()
-    db_session.refresh(genre)
     return genre
 
 
-@pytest.fixture
-def star_fixture(db_session: Session) -> StarModel:
-    star = StarModel(name="Leonardo DiCaprio")
+def create_star(db_session: Session, index: int = 0) -> GenreModel:
+    star = StarModel(name=f"star{index}")
     db_session.add(star)
-    db_session.commit()
-    db_session.refresh(star)
     return star
 
 
@@ -72,6 +48,64 @@ def create_movie(
     )
     db_session.add(movie)
     return movie
+
+
+@pytest.fixture
+def director_fixture(db_session: Session) -> DirectorModel:
+    director = DirectorModel(name="director")
+    db_session.add(director)
+    db_session.commit()
+    db_session.refresh(director)
+    return director
+
+
+@pytest.fixture
+def certification_fixture(db_session: Session) -> CertificationModel:
+    certification = CertificationModel(name="pg-13")
+    db_session.add(certification)
+    db_session.commit()
+    db_session.refresh(certification)
+    return certification
+
+
+@pytest.fixture
+def genre_fixture(db_session: Session) -> StarModel:
+    genre = create_genre(db_session, name="horror")
+    db_session.commit()
+    db_session.refresh(genre)
+    return genre
+
+
+@pytest.fixture
+def star_fixture(db_session: Session) -> StarModel:
+    star = create_star(db_session)
+    db_session.commit()
+    db_session.refresh(star)
+    return star
+
+
+@pytest.fixture
+def stars_fixture(db_session):
+    def _create_stars(amount: int):
+        stars = [create_star(db_session, index=i) for i in range(amount)]
+        db_session.commit()
+        for star in stars:
+            db_session.refresh(star)
+        return stars
+
+    return _create_stars
+
+
+@pytest.fixture
+def genres_fixture(db_session):
+    def _create_genres(amount: int):
+        genres = [create_genre(db_session, index=i) for i in range(amount)]
+        db_session.commit()
+        for genre in genres:
+            db_session.refresh(genre)
+        return genres
+
+    return _create_genres
 
 
 @pytest.fixture
@@ -109,8 +143,6 @@ def movies_fixture(
         ]
         db_session.commit()
         for movie in movies:
-            print(movie.genres)
-            print(movie.certification)
             db_session.refresh(movie)
         return movies
 
