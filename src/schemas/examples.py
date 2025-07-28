@@ -18,11 +18,11 @@ INVALID_CREDENTIAL_EXAMPLES = {
 }
 
 ADMIN_REQUIRED_EXAMPLES = {
-    "not_admin": "Access denied. Admin privileges required",
+    "not_admin": "Access denied. Admin privileges required.",
 }
 
 MODERATOR_OR_ADMIN_EXAMPLES = {
-    "not_admin_moderator": "Access denied. Moderator or admin required",
+    "not_admin_moderator": "Access denied. Moderator or admin required.",
 }
 
 PROFILE_VALIDATION_EXAMPLES = {

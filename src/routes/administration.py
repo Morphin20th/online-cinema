@@ -52,16 +52,16 @@ def get_user_by_email(email: EmailStr, db: Session) -> Optional[UserModel]:
         http_status.HTTP_200_OK: aggregate_error_examples(
             description="OK",
             examples={
-                "message": "User account activated successfully by admin",
-                "activated": "User account is already active",
+                "message": "User account activated successfully by admin.",
+                "activated": "User account is already active.",
             },
-        ),
-        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
-            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
         ),
         http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={"inactive_user": "Your account is not activated."},
+            examples={
+                "inactive_user": "Your account is not activated.",
+                **ADMIN_REQUIRED_EXAMPLES,
+            },
         ),
         http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -100,7 +100,7 @@ def admin_activate_user(
         )
 
     if user.is_active:
-        return MessageResponseSchema(message="User account is already active")
+        return MessageResponseSchema(message="User account is already active.")
 
     try:
         user.is_active = True
@@ -115,7 +115,9 @@ def admin_activate_user(
             detail="Error occurred during user account activation.",
         )
 
-    return MessageResponseSchema(message="User account activated successfully by admin")
+    return MessageResponseSchema(
+        message="User account activated successfully by admin."
+    )
 
 
 @router.post(
@@ -133,7 +135,7 @@ def admin_activate_user(
             },
         ),
         http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
-            description="Bad Request", examples={"invalid_group": "Invalid group ID"}
+            description="Bad Request", examples={"invalid_group": "Invalid group ID."}
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
@@ -193,7 +195,7 @@ def change_user_group(
 
     if data.group_id not in [1, 2, 3]:
         raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Invalid group ID"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Invalid group ID."
         )
 
     try:

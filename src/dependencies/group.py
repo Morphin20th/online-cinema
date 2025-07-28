@@ -18,7 +18,7 @@ def admin_required(current_user: UserModel = Depends(get_current_user)) -> UserM
     if current_user.group.name != UserGroupEnum.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Admin privileges required",
+            detail="Access denied. Admin privileges required.",
         )
     return current_user
 

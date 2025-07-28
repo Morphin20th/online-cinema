@@ -13,21 +13,21 @@ from src.tests.utils.fixtures.movies import (
 )
 from src.tests.utils.fixtures.clients import (
     registered_user,
-    registered_and_activated_user,
+    registered_activated_user,
     token,
     regular_user,
-    client_authorized_by_user,
-    client_authorized_by_admin,
-    client_authorized_by_moderator,
+    client_user,
+    client_admin,
+    client_moderator,
 )
 
 __all__ = [
     # clients
     "registered_user",
-    "registered_and_activated_user",
-    "client_authorized_by_user",
-    "client_authorized_by_moderator",
-    "client_authorized_by_admin",
+    "registered_activated_user",
+    "client_user",
+    "client_moderator",
+    "client_admin",
     "token",
     "regular_user",
     # movies

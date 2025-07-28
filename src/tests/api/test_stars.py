@@ -8,8 +8,8 @@ from src.database import StarModel
 URL_PREFIX = "movies/stars/"
 
 
-def test_create_star_success(db_session, client_authorized_by_moderator):
-    client, _ = client_authorized_by_moderator
+def test_create_star_success(db_session, client_moderator):
+    client, _ = client_moderator
 
     star_name = "star"
     response = client.post(f"{URL_PREFIX}create/", json={"name": star_name})
@@ -24,8 +24,8 @@ def test_create_star_success(db_session, client_authorized_by_moderator):
     assert star.name == star_name, "Expected same name as in test."
 
 
-def test_create_star_conflict(db_session, star_fixture, client_authorized_by_moderator):
-    client, _ = client_authorized_by_moderator
+def test_create_star_conflict(db_session, star_fixture, client_moderator):
+    client, _ = client_moderator
 
     response = client.post(f"{URL_PREFIX}create/", json={"name": star_fixture.name})
     assert response.status_code == 409, "Expected status code 409 Conflict."
@@ -35,8 +35,8 @@ def test_create_star_conflict(db_session, star_fixture, client_authorized_by_mod
     )
 
 
-def test_create_star_internal_server_error(db_session, client_authorized_by_moderator):
-    client, _ = client_authorized_by_moderator
+def test_create_star_internal_server_error(db_session, client_moderator):
+    client, _ = client_moderator
 
     star_name = "star"
     with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
@@ -48,8 +48,8 @@ def test_create_star_internal_server_error(db_session, client_authorized_by_mode
     assert response.json()["detail"] == "Error occurred while trying to create star."
 
 
-def test_update_star_success(db_session, star_fixture, client_authorized_by_moderator):
-    client, _ = client_authorized_by_moderator
+def test_update_star_success(db_session, star_fixture, client_moderator):
+    client, _ = client_moderator
 
     star_name = "star"
     response = client.patch(f"{URL_PREFIX}{star_fixture.id}/", json={"name": star_name})
@@ -61,10 +61,8 @@ def test_update_star_success(db_session, star_fixture, client_authorized_by_mode
     assert star_record.name == star_name, "Expected same name as in test."
 
 
-def test_update_star_not_found(
-    db_session, star_fixture, client_authorized_by_moderator
-):
-    client, _ = client_authorized_by_moderator
+def test_update_star_not_found(db_session, star_fixture, client_moderator):
+    client, _ = client_moderator
 
     db_session.delete(star_fixture)
     db_session.commit()
@@ -76,10 +74,8 @@ def test_update_star_not_found(
     assert response.json()["detail"] == "Star with the given ID was not found."
 
 
-def test_update_star_internal_server_error(
-    db_session, star_fixture, client_authorized_by_moderator
-):
-    client, _ = client_authorized_by_moderator
+def test_update_star_internal_server_error(db_session, star_fixture, client_moderator):
+    client, _ = client_moderator
 
     with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
         response = client.patch(
@@ -117,8 +113,8 @@ def test_get_stars_with_params(db_session, client, stars_fixture):
     assert len(stars) == amount, f"Expected {amount} stars."
 
 
-def test_delete_star_success(db_session, client_authorized_by_moderator, star_fixture):
-    client, _ = client_authorized_by_moderator
+def test_delete_star_success(db_session, client_moderator, star_fixture):
+    client, _ = client_moderator
 
     response = client.delete(f"{URL_PREFIX}{star_fixture.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
@@ -128,10 +124,8 @@ def test_delete_star_success(db_session, client_authorized_by_moderator, star_fi
     assert star_record is None, "Star was not deleted."
 
 
-def test_delete_star_internal_server_error(
-    client_authorized_by_moderator, star_fixture, db_session
-):
-    client, _ = client_authorized_by_moderator
+def test_delete_star_internal_server_error(client_moderator, star_fixture, db_session):
+    client, _ = client_moderator
 
     with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
         response = client.delete(f"{URL_PREFIX}{star_fixture.id}/")
@@ -145,10 +139,8 @@ def test_delete_star_internal_server_error(
     assert star_record, "Star was deleted."
 
 
-def test_delete_star_not_found(
-    client_authorized_by_moderator, star_fixture, db_session
-):
-    client, _ = client_authorized_by_moderator
+def test_delete_star_not_found(client_moderator, star_fixture, db_session):
+    client, _ = client_moderator
 
     db_session.delete(star_fixture)
     db_session.commit()
@@ -158,8 +150,8 @@ def test_delete_star_not_found(
     assert response.json()["detail"] == "Star with the given ID was not found."
 
 
-def test_get_star_detail_success(client_authorized_by_user, star_fixture):
-    client, _ = client_authorized_by_user
+def test_get_star_detail_success(client_user, star_fixture):
+    client, _ = client_user
 
     response = client.get(f"{URL_PREFIX}{star_fixture.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
@@ -170,8 +162,8 @@ def test_get_star_detail_success(client_authorized_by_user, star_fixture):
     assert data["name"] == star_fixture.name
 
 
-def test_get_star_detail_not_found(client_authorized_by_user, star_fixture, db_session):
-    client, _ = client_authorized_by_user
+def test_get_star_detail_not_found(client_user, star_fixture, db_session):
+    client, _ = client_user
 
     db_session.delete(star_fixture)
     db_session.commit()
@@ -179,3 +171,44 @@ def test_get_star_detail_not_found(client_authorized_by_user, star_fixture, db_s
     response = client.get(f"{URL_PREFIX}{star_fixture.id}/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Star with the given ID was not found."
+
+
+# user cannot access tests
+
+
+def test_user_create_star_forbidden(client_user, db_session):
+    client, _ = client_user
+
+    response = client.post(f"{URL_PREFIX}create/", json={"name": "star"})
+    assert response.status_code == 403, "Expected status code  403 Forbidden."
+    assert response.json()["detail"] == "Access denied. Moderator or admin required."
+    star = db_session.query(StarModel).filter_by(name="star").first()
+
+    assert star is None, "Star was created."
+
+
+def test_user_update_star_forbidden(client_user, star_fixture, db_session):
+    client, _ = client_user
+
+    response = client.patch(f"{URL_PREFIX}{star_fixture.id}/", json={"name": "star"})
+    assert response.status_code == 403, "Expected status code 403 Forbidden."
+    assert response.json()["detail"] == "Access denied. Moderator or admin required."
+
+    db_session.refresh(star_fixture)
+    assert star_fixture.name != "star", "Star was updated."
+
+
+def test_user_delete_star_forbidden(client_user, star_fixture, db_session):
+    client, _ = client_user
+    response = client.delete(f"{URL_PREFIX}{star_fixture.id}/")
+    assert response.status_code == 403, "Expected status code 403 Forbidden."
+    assert response.json()["detail"] == "Access denied. Moderator or admin required."
+
+    star = db_session.query(StarModel).filter_by(name=star_fixture.name).first()
+    assert star, "Star was deleted."
+
+
+def test_anon_get_star_detail_unauthorized(client, star_fixture):
+    response = client.get(f"{URL_PREFIX}{star_fixture.id}/")
+    assert response.status_code == 401, "Expected status code 401 Unauthorized."
+    assert response.json()["detail"] == "Authorization header is missing"

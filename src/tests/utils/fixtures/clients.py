@@ -22,7 +22,7 @@ def token():
 
 
 @pytest.fixture
-def client_authorized_by_user(
+def client_user(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_user
@@ -34,7 +34,7 @@ def client_authorized_by_user(
 
 
 @pytest.fixture
-def client_authorized_by_admin(
+def client_admin(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_admin
@@ -46,7 +46,7 @@ def client_authorized_by_admin(
 
 
 @pytest.fixture
-def client_authorized_by_moderator(
+def client_moderator(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_moderator
@@ -66,7 +66,7 @@ def registered_user(client: TestClient, db_session: Session) -> Tuple[dict, User
 
 
 @pytest.fixture
-def registered_and_activated_user(
+def registered_activated_user(
     client: TestClient, db_session: Session
 ) -> Tuple[dict, UserModel]:
     payload = make_user_payload()

@@ -146,9 +146,9 @@ def test_resend_activation_success(client, db_session, registered_user):
 
 
 def test_resend_activation_already_activated(
-    client, db_session, registered_and_activated_user
+    client, db_session, registered_activated_user
 ):
-    payload, user = registered_and_activated_user
+    payload, user = registered_activated_user
     db_session.delete(user.activation_token)
     db_session.commit()
 
@@ -174,8 +174,8 @@ def test_resend_activation_internal_server_error(client, db_session, registered_
     assert response.json()["detail"] == "An error occurred while creating the token."
 
 
-def test_login_user_success(client, db_session, registered_and_activated_user):
-    register_payload, user = registered_and_activated_user
+def test_login_user_success(client, db_session, registered_activated_user):
+    register_payload, user = registered_activated_user
 
     response = client.post("accounts/login/", json=register_payload)
     assert response.status_code == 200, "Expected status code 200 OK."
@@ -190,8 +190,8 @@ def test_login_user_success(client, db_session, registered_and_activated_user):
     assert refresh_token, "Refresh token was not created."
 
 
-def test_login_user_unauthorized(client, registered_and_activated_user):
-    payload, user = registered_and_activated_user
+def test_login_user_unauthorized(client, registered_activated_user):
+    payload, user = registered_activated_user
 
     response = client.post(
         "accounts/login/",
@@ -209,8 +209,8 @@ def test_login_user_forbidden(client, registered_user):
     assert response.json()["detail"] == "Your account is not activated"
 
 
-def test_login_user_internal_server_error(client, registered_and_activated_user):
-    payload, user = registered_and_activated_user
+def test_login_user_internal_server_error(client, registered_activated_user):
+    payload, user = registered_activated_user
 
     with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
         response = client.post("accounts/login", json=payload)
@@ -220,9 +220,9 @@ def test_login_user_internal_server_error(client, registered_and_activated_user)
     assert response.json()["detail"] == "An error occurred while creating the token."
 
 
-def test_logout_user_success(client_authorized_by_user, db_session, mock_redis):
+def test_logout_user_success(client_user, db_session, mock_redis):
     app.dependency_overrides[get_redis_client] = lambda: mock_redis
-    client, user = client_authorized_by_user
+    client, user = client_user
 
     refresh_token = (
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
@@ -246,11 +246,9 @@ def test_logout_user_unauthorized(client, mock_redis):
     app.dependency_overrides.clear()
 
 
-def test_logout_user_internal_server_error(
-    client_authorized_by_user, db_session, mock_redis
-):
+def test_logout_user_internal_server_error(client_user, db_session, mock_redis):
     app.dependency_overrides[get_redis_client] = lambda: mock_redis
-    client, user = client_authorized_by_user
+    client, user = client_user
 
     refresh_token = (
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
@@ -267,8 +265,8 @@ def test_logout_user_internal_server_error(
     app.dependency_overrides.clear()
 
 
-def test_refresh_token_success(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_refresh_token_success(client_user, db_session):
+    client, user = client_user
 
     refresh_token = (
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
@@ -286,8 +284,8 @@ def test_refresh_token_success(client_authorized_by_user, db_session):
     ), "Expected new refresh token to be created."
 
 
-def test_refresh_token_not_found(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_refresh_token_not_found(client_user, db_session):
+    client, user = client_user
 
     refresh_token = (
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
@@ -301,8 +299,8 @@ def test_refresh_token_not_found(client_authorized_by_user, db_session):
     assert response.json()["detail"] == "Refresh token not found."
 
 
-def test_refresh_token_unauthorized_not_belong(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_refresh_token_unauthorized_not_belong(client_user, db_session):
+    client, user = client_user
 
     response = client.post(
         "accounts/refresh/",
@@ -318,8 +316,8 @@ def test_refresh_token_unauthorized_not_belong(client_authorized_by_user, db_ses
     )
 
 
-def test_refresh_token_unauthorized_expired(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_refresh_token_unauthorized_expired(client_user, db_session):
+    client, user = client_user
 
     refresh_token = (
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
@@ -334,8 +332,8 @@ def test_refresh_token_unauthorized_expired(client_authorized_by_user, db_sessio
     assert response.json()["detail"] == "Refresh token expired."
 
 
-def test_change_password_success(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_change_password_success(client_user, db_session):
+    client, user = client_user
     payload = {
         "email": user.email,
         "old_password": PASSWORD,
@@ -348,8 +346,8 @@ def test_change_password_success(client_authorized_by_user, db_session):
     assert response_data["message"] == "Password has been changed successfully!"
 
 
-def test_change_password_conflict(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_change_password_conflict(client_user, db_session):
+    client, user = client_user
     payload = {
         "email": user.email,
         "old_password": PASSWORD,
@@ -362,8 +360,8 @@ def test_change_password_conflict(client_authorized_by_user, db_session):
     assert response_data["detail"] == "New password cannot be same as the old one."
 
 
-def test_change_password_internal_server_error(client_authorized_by_user, db_session):
-    client, user = client_authorized_by_user
+def test_change_password_internal_server_error(client_user, db_session):
+    client, user = client_user
 
     payload = {
         "email": user.email,
@@ -397,9 +395,9 @@ def test_reset_password_request_inactive_user(client, registered_user, db_sessio
 
 
 def test_reset_password_request_active_user(
-    client, registered_and_activated_user, db_session
+    client, registered_activated_user, db_session
 ):
-    _, user = registered_and_activated_user
+    _, user = registered_activated_user
 
     response = client.post(
         "accounts/reset-password/request/", json={"email": user.email}
@@ -416,8 +414,8 @@ def test_reset_password_request_active_user(
 
 
 @pytest.fixture
-def reset_token(db_session, registered_and_activated_user):
-    _, user = registered_and_activated_user
+def reset_token(db_session, registered_activated_user):
+    _, user = registered_activated_user
     token_record = PasswordResetTokenModel(user_id=user.id)
     db_session.add(token_record)
     db_session.commit()
@@ -425,8 +423,8 @@ def reset_token(db_session, registered_and_activated_user):
 
 
 @pytest.fixture
-def expired_token(db_session, registered_and_activated_user):
-    _, user = registered_and_activated_user
+def expired_token(db_session, registered_activated_user):
+    _, user = registered_activated_user
     token_record = PasswordResetTokenModel(
         user_id=user.id, expires_at=datetime.now(timezone.utc) - timedelta(minutes=10)
     )
@@ -436,9 +434,9 @@ def expired_token(db_session, registered_and_activated_user):
 
 
 def test_successful_password_reset(
-    client, registered_and_activated_user, reset_token, db_session
+    client, registered_activated_user, reset_token, db_session
 ):
-    payload, user = registered_and_activated_user
+    payload, user = registered_activated_user
 
     response = client.post(
         "accounts/reset-password/complete/",
@@ -458,10 +456,8 @@ def test_successful_password_reset(
     assert token is None
 
 
-def test_reset_password_invalid_email(
-    client, registered_and_activated_user, reset_token
-):
-    _, user = registered_and_activated_user
+def test_reset_password_invalid_email(client, registered_activated_user, reset_token):
+    _, user = registered_activated_user
 
     response = client.post(
         "accounts/reset-password/complete/",
@@ -500,10 +496,8 @@ def test_reset_password_inactive_user(client, registered_user, db_session):
     assert user.password != PASSWORD
 
 
-def test_reset_password_invalid_token(
-    client, registered_and_activated_user, reset_token
-):
-    payload, user = registered_and_activated_user
+def test_reset_password_invalid_token(client, registered_activated_user, reset_token):
+    payload, user = registered_activated_user
 
     response = client.post(
         "accounts/reset-password/complete/",
@@ -519,9 +513,9 @@ def test_reset_password_invalid_token(
 
 
 def test_reset_password_expired_token(
-    client, registered_and_activated_user, expired_token, db_session
+    client, registered_activated_user, expired_token, db_session
 ):
-    payload, user = registered_and_activated_user
+    payload, user = registered_activated_user
 
     response = client.post(
         "accounts/reset-password/complete/",
