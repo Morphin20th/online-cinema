@@ -24,6 +24,10 @@ from src.tests.utils.fixtures.carts import (
     client_cart,
     client_cart_with_item,
 )
+from src.tests.utils.fixtures.orders import (
+    order_fixture,
+    order_paid_fixture,
+)
 
 __all__ = [
     # clients
@@ -49,4 +53,7 @@ __all__ = [
     # carts
     "client_cart",
     "client_cart_with_item",
+    # orders
+    "order_fixture",
+    "order_paid_fixture",
 ]

@@ -31,10 +31,10 @@ def create_movie(
     certification_fixture,
     director_fixture,
     genre_fixture,
-    index: int = 0,
+    index: int = -1,
 ) -> MovieModel:
     movie = MovieModel(
-        name=f"Test Movie {index}",
+        name=f"Test Movie {index if index != -1 else ''}",
         year=2000 + index,
         time=100 + index,
         imdb=7.0,

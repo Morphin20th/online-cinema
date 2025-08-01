@@ -52,9 +52,7 @@ router = APIRouter()
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -247,9 +245,7 @@ def get_orders(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -418,7 +414,6 @@ def refund_order(
         )
 
     try:
-
         stripe_service.create_refund(
             payment_intent_id=latest_payment.external_payment_id
         )
