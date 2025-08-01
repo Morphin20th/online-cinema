@@ -20,6 +20,10 @@ from src.tests.utils.fixtures.clients import (
     client_admin,
     client_moderator,
 )
+from src.tests.utils.fixtures.carts import (
+    client_cart,
+    client_cart_with_item,
+)
 
 __all__ = [
     # clients
@@ -42,4 +46,7 @@ __all__ = [
     "purchased_movie_fixture",
     "genres_fixture",
     "stars_fixture",
+    # carts
+    "client_cart",
+    "client_cart_with_item",
 ]

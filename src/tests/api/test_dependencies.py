@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import pytest
 from fastapi import HTTPException, Request
 
@@ -11,14 +9,16 @@ from src.dependencies import (
 )
 
 
-def test_get_current_user_success(client_user, db_session, jwt_manager, mock_redis):
+def test_get_current_user_success(
+    client_user, db_session, jwt_manager, mock_redis, mocker
+):
     client, user = client_user
 
     token = client.headers["Authorization"].split()[1]
 
     mock_redis.get.return_value = None
 
-    mock_request = MagicMock(spec=Request)
+    mock_request = mocker.MagicMock(spec=Request)
     mock_request.headers = {"Authorization": f"Bearer {token}"}
 
     current_user = get_current_user(
@@ -33,8 +33,8 @@ def test_get_current_user_success(client_user, db_session, jwt_manager, mock_red
     mock_redis.get.assert_called_once_with(f"bl:{token}")
 
 
-def test_get_current_user_missing_auth_header():
-    mock_request = MagicMock(spec=Request)
+def test_get_current_user_missing_auth_header(mocker):
+    mock_request = mocker.MagicMock(spec=Request)
     mock_request.headers = {}
 
     with pytest.raises(HTTPException) as exc_info:
@@ -44,8 +44,8 @@ def test_get_current_user_missing_auth_header():
     assert exc_info.value.detail == "Authorization header is missing"
 
 
-def test_get_current_user_invalid_auth_format():
-    mock_request = MagicMock(spec=Request)
+def test_get_current_user_invalid_auth_format(mocker):
+    mock_request = mocker.MagicMock(spec=Request)
     mock_request.headers = {"Authorization": "InvalidFormat"}
 
     with pytest.raises(HTTPException) as exc_info:
@@ -58,20 +58,20 @@ def test_get_current_user_invalid_auth_format():
     )
 
 
-def test_get_current_user_blacklisted_token(client_user, mock_redis):
+def test_get_current_user_blacklisted_token(mocker, client_user, mock_redis):
     client, _ = client_user
     token = client.headers["Authorization"].split()[1]
 
     mock_redis.get.return_value = "1"
 
-    mock_request = MagicMock(spec=Request)
+    mock_request = mocker.MagicMock(spec=Request)
     mock_request.headers = {"Authorization": f"Bearer {token}"}
 
     with pytest.raises(HTTPException) as exc_info:
         get_current_user(
             token=get_token(mock_request),
-            jwt_manager=MagicMock(),
-            db=MagicMock(),
+            jwt_manager=mocker.MagicMock(),
+            db=mocker.MagicMock(),
             redis=mock_redis,
         )
 
@@ -79,14 +79,14 @@ def test_get_current_user_blacklisted_token(client_user, mock_redis):
     assert exc_info.value.detail == "Token has been blacklisted"
 
 
-def test_get_current_user_invalid_token(jwt_manager, mock_redis):
+def test_get_current_user_invalid_token(mocker, jwt_manager, mock_redis):
     mock_redis.get.return_value = None
 
     with pytest.raises(HTTPException) as exc_info:
         get_current_user(
             token="invalid.token",
             jwt_manager=jwt_manager,
-            db=MagicMock(),
+            db=mocker.MagicMock(),
             redis=mock_redis,
         )
 

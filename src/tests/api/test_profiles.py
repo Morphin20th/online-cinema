@@ -1,5 +1,4 @@
 from io import BytesIO
-from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -42,25 +41,25 @@ def test_profile_create_success_with_data(client_user, db_session):
     assert profile.info == examples.profile_example["info"]
 
 
-def test_create_profile_with_avatar(client_user, db_session):
+def test_create_profile_with_avatar(client_user, db_session, mocker):
     client, user = client_user
 
-    with patch("src.routes.profiles.save_avatar", return_value="/uploads/avatar.jpg"):
-        img = Image.new("RGB", (100, 100), color="blue")
-        img_byte_arr = BytesIO()
-        img.save(img_byte_arr, format="JPEG")
-        img_byte_arr.seek(0)
+    mocker.patch("src.routes.profiles.save_avatar", return_value="/uploads/avatar.jpg")
+    img = Image.new("RGB", (100, 100), color="blue")
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format="JPEG")
+    img_byte_arr.seek(0)
 
-        response = client.post(
-            f"{URL_PREFIX}{user.id}/",
-            data={},
-            files={"avatar": ("avatar.jpg", img_byte_arr.getvalue(), "image/jpeg")},
-        )
+    response = client.post(
+        f"{URL_PREFIX}{user.id}/",
+        data={},
+        files={"avatar": ("avatar.jpg", img_byte_arr.getvalue(), "image/jpeg")},
+    )
 
-        assert response.status_code == 201, "Expected status code 201 Created."
-        result = response.json()
+    assert response.status_code == 201, "Expected status code 201 Created."
+    result = response.json()
 
-        assert result["avatar"] == "/uploads/avatar.jpg"
+    assert result["avatar"] == "/uploads/avatar.jpg"
 
 
 def test_profile_create_conflict(client_user, db_session):
@@ -170,7 +169,7 @@ def test_profile_update_success_full(client_user, db_session):
     ), "'last_name' is expected to be updated."
 
 
-def test_profile_update_avatar(client_user, db_session):
+def test_profile_update_avatar(client_user, db_session, mocker):
     client, user = client_user
 
     db_session.add(
@@ -180,21 +179,20 @@ def test_profile_update_avatar(client_user, db_session):
     )
     db_session.commit()
 
-    with patch("src.routes.profiles.save_avatar", return_value="/new/path.jpg"):
-        img = Image.new("RGB", (100, 100), color="red")
-        img_byte_arr = BytesIO()
-        img.save(img_byte_arr, format="JPEG")
-        img_byte_arr.seek(0)
+    mocker.patch("src.routes.profiles.save_avatar", return_value="/new/path.jpg")
+    img = Image.new("RGB", (100, 100), color="red")
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format="JPEG")
+    img_byte_arr.seek(0)
 
-        response = client.patch(
-            f"{URL_PREFIX}{user.id}/",
-            data={"first_name": "Old"},
-            files={"avatar": ("new.jpg", img_byte_arr.getvalue(), "image/jpeg")},
-        )
+    response = client.patch(
+        f"{URL_PREFIX}{user.id}/",
+        data={"first_name": "Old"},
+        files={"avatar": ("new.jpg", img_byte_arr.getvalue(), "image/jpeg")},
+    )
 
-        print(response.json())
-        assert response.status_code == 200
-        assert response.json()["avatar"] == "/new/path.jpg"
+    assert response.status_code == 200
+    assert response.json()["avatar"] == "/new/path.jpg"
 
 
 def test_profile_update_forbidden_for_other_users(
@@ -217,14 +215,14 @@ def test_profile_update_forbidden_for_other_users(
     assert profile.first_name == "Original"
 
 
-def test_profile_update_db_error(client_user, db_session):
+def test_profile_update_db_error(client_user, db_session, mocker):
     client, user = client_user
 
     db_session.add(UserProfileModel(user_id=user.id))
     db_session.commit()
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.patch(f"{URL_PREFIX}{user.id}/", data={"first_name": "New"})
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.patch(f"{URL_PREFIX}{user.id}/", data={"first_name": "New"})
 
     assert response.status_code == 500
     assert "Error occurred during profile update" in response.json()["detail"]
@@ -267,10 +265,7 @@ def test_user_cant_view_other_user_profile(client_user, db_session, regular_user
     assert response.json()["detail"] == "Only admin or profile owner can view profile."
 
 
-def test_get_profile_not_found(
-    client_admin,
-    db_session,
-):
+def test_get_profile_not_found(client_admin, db_session):
     client, _ = client_admin
 
     response = client.get(f"{URL_PREFIX}999/")

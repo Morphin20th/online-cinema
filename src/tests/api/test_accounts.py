@@ -1,5 +1,4 @@
 from datetime import timezone, datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
@@ -90,11 +89,11 @@ def test_register_user_conflict(client, registered_user):
     )
 
 
-def test_register_user_internal_server_error(client):
+def test_register_user_internal_server_error(client, mocker):
     payload = make_user_payload()
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post("accounts/register/", json=payload)
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post("accounts/register/", json=payload)
 
     assert response.status_code == 500, "Expected status code 500 Internal Server Error"
     assert response.json()["detail"] == "An error occurred during user creation."
@@ -159,13 +158,13 @@ def test_resend_activation_already_activated(
     assert response.json()["message"] == "User is already activated."
 
 
-def test_resend_activation_internal_server_error(client, db_session, registered_user):
+def test_resend_activation_internal_server_error(client, db_session, registered_user, mocker):
     payload, user = registered_user
     db_session.delete(user.activation_token)
     db_session.commit()
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(
             "accounts/resend-activation", json={"email": payload["email"]}
         )
     assert (
@@ -209,11 +208,11 @@ def test_login_user_forbidden(client, registered_user):
     assert response.json()["detail"] == "Your account is not activated"
 
 
-def test_login_user_internal_server_error(client, registered_activated_user):
+def test_login_user_internal_server_error(client, registered_activated_user, mocker):
     payload, user = registered_activated_user
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post("accounts/login", json=payload)
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post("accounts/login", json=payload)
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -246,7 +245,7 @@ def test_logout_user_unauthorized(client, mock_redis):
     app.dependency_overrides.clear()
 
 
-def test_logout_user_internal_server_error(client_user, db_session, mock_redis):
+def test_logout_user_internal_server_error(client_user, db_session, mock_redis, mocker):
     app.dependency_overrides[get_redis_client] = lambda: mock_redis
     client, user = client_user
 
@@ -254,8 +253,8 @@ def test_logout_user_internal_server_error(client_user, db_session, mock_redis):
         db_session.query(RefreshTokenModel).filter_by(user_id=user.id).first()
     )
     assert refresh_token, "Refresh Token was not created"
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(
             "accounts/logout/", json={"refresh_token": refresh_token.token}
         )
     assert (
@@ -360,7 +359,7 @@ def test_change_password_conflict(client_user, db_session):
     assert response_data["detail"] == "New password cannot be same as the old one."
 
 
-def test_change_password_internal_server_error(client_user, db_session):
+def test_change_password_internal_server_error(client_user, db_session, mocker):
     client, user = client_user
 
     payload = {
@@ -368,8 +367,8 @@ def test_change_password_internal_server_error(client_user, db_session):
         "old_password": PASSWORD,
         "new_password": "Test123!",
     }
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post("accounts/change-password", json=payload)
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post("accounts/change-password", json=payload)
 
     assert (
         response.status_code == 500

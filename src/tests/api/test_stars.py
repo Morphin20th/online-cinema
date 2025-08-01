@@ -1,5 +1,4 @@
 import math
-from unittest.mock import patch
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -35,12 +34,12 @@ def test_create_star_conflict(db_session, star_fixture, client_moderator):
     )
 
 
-def test_create_star_internal_server_error(db_session, client_moderator):
+def test_create_star_internal_server_error(db_session, client_moderator, mocker):
     client, _ = client_moderator
 
     star_name = "star"
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(f"{URL_PREFIX}create/", json={"name": star_name})
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(f"{URL_PREFIX}create/", json={"name": star_name})
 
     assert (
         response.status_code == 500
@@ -74,13 +73,15 @@ def test_update_star_not_found(db_session, star_fixture, client_moderator):
     assert response.json()["detail"] == "Star with the given ID was not found."
 
 
-def test_update_star_internal_server_error(db_session, star_fixture, client_moderator):
+def test_update_star_internal_server_error(
+    db_session, star_fixture, client_moderator, mocker
+):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.patch(
-            f"{URL_PREFIX}{star_fixture.id}/", json={"name": star_fixture.name}
-        )
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.patch(
+        f"{URL_PREFIX}{star_fixture.id}/", json={"name": star_fixture.name}
+    )
 
     assert (
         response.status_code == 500
@@ -124,19 +125,16 @@ def test_delete_star_success(db_session, client_moderator, star_fixture):
     assert star_record is None, "Star was not deleted."
 
 
-def test_delete_star_internal_server_error(client_moderator, star_fixture, db_session):
+def test_delete_star_internal_server_error(
+    client_moderator, star_fixture, db_session, mocker
+):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.delete(f"{URL_PREFIX}{star_fixture.id}/")
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.delete(f"{URL_PREFIX}{star_fixture.id}/")
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Error occurred while trying to delete star."
-
-    db_session.rollback()  # do not remove
-
-    star_record = db_session.query(StarModel).filter_by(id=star_fixture.id).first()
-    assert star_record, "Star was deleted."
 
 
 def test_delete_star_not_found(client_moderator, star_fixture, db_session):

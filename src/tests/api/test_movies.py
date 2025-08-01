@@ -1,11 +1,8 @@
-from unittest.mock import patch
-
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import src.tests.examples.movie_examples as examples
-from src.schemas import MovieDetailSchema
 from src.database import (
     MovieModel,
     CertificationModel,
@@ -13,6 +10,7 @@ from src.database import (
     DirectorModel,
     StarModel,
 )
+from src.schemas import MovieDetailSchema
 
 URL_PREFIX = "movies/"
 
@@ -135,13 +133,11 @@ def test_create_movie_invalid_data(client_moderator, db_session):
     assert movie_record is None, "Movie was created."
 
 
-def test_create_movie_internal_server_error(client_moderator):
+def test_create_movie_internal_server_error(client_moderator, mocker):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(
-            f"{URL_PREFIX}create/", json=examples.minimal_movie_example
-        )
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(f"{URL_PREFIX}create/", json=examples.minimal_movie_example)
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -185,13 +181,13 @@ def test_update_movie_not_found(client_moderator, movie_fixture, db_session):
     assert response.json()["detail"] == "Movie with the given ID was not found."
 
 
-def test_update_movie_internal_server_error(client_moderator, movie_fixture):
+def test_update_movie_internal_server_error(client_moderator, movie_fixture, mocker):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.patch(
-            f"{URL_PREFIX}{movie_fixture.uuid}/", json=examples.minimal_movie_example
-        )
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.patch(
+        f"{URL_PREFIX}{movie_fixture.uuid}/", json=examples.minimal_movie_example
+    )
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -233,11 +229,11 @@ def test_delete_movie_not_found(client_moderator, movie_fixture, db_session):
     assert response.json()["detail"] == "Movie with the given ID was not found."
 
 
-def test_delete_movie_internal_server_error(client_moderator, movie_fixture):
+def test_delete_movie_internal_server_error(client_moderator, movie_fixture, mocker):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
 
     assert (
         response.status_code == 500

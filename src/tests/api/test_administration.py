@@ -1,5 +1,4 @@
 from functools import partial
-from unittest.mock import patch
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -45,15 +44,15 @@ def test_admin_activate_user_not_found(client_admin, db_session):
 
 
 def test_admin_activate_user_internal_server_error(
-    client_admin, registered_user, db_session
+    client_admin, registered_user, db_session, mocker
 ):
     client, _ = client_admin
     user_payload, _ = registered_user
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(
-            f"{URL_PREFIX}accounts/activate/", json={"email": user_payload["email"]}
-        )
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(
+        f"{URL_PREFIX}accounts/activate/", json={"email": user_payload["email"]}
+    )
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -123,15 +122,15 @@ def test_admin_change_user_group_not_found(client_admin, db_session):
 
 
 def test_admin_change_user_group_internal_server_error(
-    client_admin, registered_activated_user, db_session
+    client_admin, registered_activated_user, db_session, mocker
 ):
     client, _ = client_admin
     user_payload, _ = registered_activated_user
 
     payload = {"email": user_payload["email"], "group_id": 3}
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(f"{URL_PREFIX}accounts/change-group/", json=payload)
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(f"{URL_PREFIX}accounts/change-group/", json=payload)
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."

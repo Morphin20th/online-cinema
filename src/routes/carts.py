@@ -70,9 +70,7 @@ def get_cart_with_items(db: Session, user_id: int) -> BaseCartSchema:
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
     },
 )
@@ -115,9 +113,7 @@ def get_cart(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -152,19 +148,19 @@ def add_movie_to_cart(
     Returns:
         Message confirming the movie was added.
     """
-    movie = db.query(MovieModel).filter(MovieModel.uuid == data.movie_uuid).first()
-
-    if not movie:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie with given UUID was not found.",
-        )
 
     cart = db.query(CartModel).filter(CartModel.user_id == current_user.id).first()
     if not cart:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cart not found.",
+        )
+
+    movie = db.query(MovieModel).filter(MovieModel.uuid == data.movie_uuid).first()
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie with given UUID was not found.",
         )
 
     already_purchased = (
@@ -232,9 +228,7 @@ def add_movie_to_cart(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -320,15 +314,11 @@ def remove_movie_from_cart(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
-            examples={
-                "no_cart_found": "Cart not found.",
-            },
+            examples={"no_cart_found": "Cart not found."},
         ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",

@@ -1,15 +1,12 @@
-from unittest.mock import MagicMock
-
 import pytest
 from fastapi.testclient import TestClient
 from redis.client import Redis
 
-from src.dependencies import get_email_sender
-from security.token_manager import JWTManager
 from src.config import get_settings, Settings
 from src.database import reset_database, get_postgres_db_contextmanager
+from src.dependencies import get_email_sender
 from src.main import app
-from src.security import JWTAuthInterface
+from src.security import JWTAuthInterface, JWTManager
 from src.tests.stubs import StubEmailService
 from src.tests.utils.fixtures import *  # noqa
 
@@ -55,6 +52,6 @@ def client(email_service_stub):
 
 
 @pytest.fixture
-def mock_redis():
-    redis_mock = MagicMock(spec=Redis)
+def mock_redis(mocker):
+    redis_mock = mocker.MagicMock(spec=Redis)
     return redis_mock

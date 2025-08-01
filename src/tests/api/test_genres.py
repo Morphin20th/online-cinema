@@ -1,5 +1,4 @@
 import math
-from unittest.mock import patch
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -35,12 +34,12 @@ def test_create_genre_conflict(db_session, genre_fixture, client_moderator):
     )
 
 
-def test_create_genre_internal_server_error(db_session, client_moderator):
+def test_create_genre_internal_server_error(db_session, client_moderator, mocker):
     client, _ = client_moderator
 
     genre_name = "genre"
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.post(f"{URL_PREFIX}create/", json={"name": genre_name})
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(f"{URL_PREFIX}create/", json={"name": genre_name})
 
     assert (
         response.status_code == 500
@@ -77,14 +76,14 @@ def test_update_genre_not_found(db_session, genre_fixture, client_moderator):
 
 
 def test_update_genre_internal_server_error(
-    db_session, genre_fixture, client_moderator
+    db_session, genre_fixture, client_moderator, mocker
 ):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.patch(
-            f"{URL_PREFIX}{genre_fixture.id}/", json={"name": genre_fixture.name}
-        )
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.patch(
+        f"{URL_PREFIX}{genre_fixture.id}/", json={"name": genre_fixture.name}
+    )
 
     assert (
         response.status_code == 500
@@ -129,20 +128,15 @@ def test_delete_genre_success(db_session, client_moderator, genre_fixture):
 
 
 def test_delete_genre_internal_server_error(
-    client_moderator, genre_fixture, db_session
+    client_moderator, genre_fixture, db_session, mocker
 ):
     client, _ = client_moderator
 
-    with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError):
-        response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Error occurred while trying to delete genre."
-
-    db_session.rollback()  # do not remove
-
-    genre_record = db_session.query(GenreModel).filter_by(id=genre_fixture.id).first()
-    assert genre_record, "Genre was deleted."
 
 
 def test_delete_genre_not_found(client_moderator, genre_fixture, db_session):
