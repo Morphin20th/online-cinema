@@ -158,15 +158,17 @@ def test_resend_activation_already_activated(
     assert response.json()["message"] == "User is already activated."
 
 
-def test_resend_activation_internal_server_error(client, db_session, registered_user, mocker):
+def test_resend_activation_internal_server_error(
+    client, db_session, registered_user, mocker
+):
     payload, user = registered_user
     db_session.delete(user.activation_token)
     db_session.commit()
 
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
     response = client.post(
-            "accounts/resend-activation", json={"email": payload["email"]}
-        )
+        "accounts/resend-activation", json={"email": payload["email"]}
+    )
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -255,8 +257,8 @@ def test_logout_user_internal_server_error(client_user, db_session, mock_redis, 
     assert refresh_token, "Refresh Token was not created"
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
     response = client.post(
-            "accounts/logout/", json={"refresh_token": refresh_token.token}
-        )
+        "accounts/logout/", json={"refresh_token": refresh_token.token}
+    )
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -298,16 +300,14 @@ def test_refresh_token_not_found(client_user, db_session):
     assert response.json()["detail"] == "Refresh token not found."
 
 
-def test_refresh_token_unauthorized_not_belong(client_user, db_session):
+def test_refresh_token_unauthorized_not_belong(client_user, regular_user, db_session):
     client, user = client_user
-
+    refresh_token = (
+        db_session.query(RefreshTokenModel).filter_by(user_id=regular_user.id).first()
+    )
     response = client.post(
         "accounts/refresh/",
-        json={
-            "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJ1c2VyX2lkIjoyLCJleHAiOjE3NTQxMjg2NDJ9."
-            "wpXdu2BtPNWNvBXfTquUu4vAVnpcWVZC-CbDjXBQjh0"
-        },
+        json={"refresh_token": refresh_token.token},
     )
     assert response.status_code == 401, "Expected status code 401 Unauthorized."
     assert (

@@ -5,9 +5,6 @@ from src.database import (
     CartModel,
     OrderItemModel,
     OrderStatusEnum,
-    PurchaseModel,
-    PaymentModel,
-    PaymentStatusEnum,
 )
 
 

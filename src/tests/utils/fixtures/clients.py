@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from database import RefreshTokenModel
 from src.database import (
     UserModel,
     UserProfileModel,
@@ -78,20 +79,23 @@ def registered_activated_user(
 
 
 @pytest.fixture
-def regular_user(db_session: Session) -> UserModel:
+def regular_user(db_session: Session, jwt_manager, settings) -> UserModel:
     user = UserModel.create(
         group_id=2, email="test1@test.com", new_password="Test1234!"
     )
     user.is_active = True
     db_session.add(user)
     db_session.commit()
-    db_session.add(
-        UserProfileModel(
-            user_id=user.id,
-            first_name="Original",
-            last_name="User",
-            info="Regular user profile",
-        )
+    profile = UserProfileModel(
+        user_id=user.id,
+        first_name="Original",
+        last_name="User",
+        info="Regular user profile",
     )
+    jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
+    refresh_token = RefreshTokenModel.create(
+        user_id=user.id, token=jwt_refresh_token, days=settings.LOGIN_DAYS
+    )
+    db_session.add_all([profile, refresh_token])
     db_session.commit()
     return user

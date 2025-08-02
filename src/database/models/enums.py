@@ -19,6 +19,6 @@ class OrderStatusEnum(enum.Enum):
 
 
 class PaymentStatusEnum(enum.Enum):
-    SUCCESSFUL = "successfull"
+    SUCCESSFUL = "successful"
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
