@@ -65,11 +65,9 @@ def assert_movie_entities_created(movie_data: dict, db_session: Session):
 
 
 def test_create_movie_success_minimal_data(client_moderator, db_session):
-    client, _ = client_moderator
-
     movie = examples.minimal_movie_example
 
-    response = client.post(f"{URL_PREFIX}create/", json=movie)
+    response = client_moderator.post(f"{URL_PREFIX}create/", json=movie)
     response_data = response.json()
     assert response.status_code == 201, "Expected status code 201 Created."
 
@@ -78,11 +76,9 @@ def test_create_movie_success_minimal_data(client_moderator, db_session):
 
 
 def test_create_movie_success_full_data(client_moderator, db_session):
-    client, _ = client_moderator
-
     movie = examples.full_movie_example
 
-    response = client.post(f"{URL_PREFIX}create/", json=movie)
+    response = client_moderator.post(f"{URL_PREFIX}create/", json=movie)
     response_data = response.json()
     assert response.status_code == 201, "Expected status code 201 Created."
 
@@ -94,17 +90,15 @@ def test_create_movie_success_full_data(client_moderator, db_session):
 
 
 def test_create_movie_conflict(client_moderator, db_session):
-    client, _ = client_moderator
-
     movie = examples.minimal_movie_example
 
-    first_response = client.post(f"{URL_PREFIX}create/", json=movie)
+    first_response = client_moderator.post(f"{URL_PREFIX}create/", json=movie)
     assert first_response.status_code == 201, "Expected status code 201 Created."
 
     movie_record = db_session.query(MovieModel).filter_by(name=movie["name"]).first()
     assert movie_record, "Movie was not created."
 
-    second_response = client.post(f"{URL_PREFIX}create/", json=movie)
+    second_response = client_moderator.post(f"{URL_PREFIX}create/", json=movie)
     assert second_response.status_code == 409, "Expected status code 409 Conflict."
     assert second_response.json()["detail"] == (
         f"A movie with name '{movie_record.name}' and release year '{movie_record.year}' "
@@ -113,20 +107,16 @@ def test_create_movie_conflict(client_moderator, db_session):
 
 
 def test_create_movie_by_user(client_user, db_session):
-    client, _ = client_user
-
     movie = examples.minimal_movie_example
 
-    response = client.post(f"{URL_PREFIX}create/", json=movie)
+    response = client_user.post(f"{URL_PREFIX}create/", json=movie)
     assert response.status_code == 403, "Expected status code 403 Forbidden."
 
 
 def test_create_movie_invalid_data(client_moderator, db_session):
-    client, _ = client_moderator
-
     movie = examples.invalid_movie_example
 
-    response = client.post(f"{URL_PREFIX}create/", json=movie)
+    response = client_moderator.post(f"{URL_PREFIX}create/", json=movie)
     assert response.status_code == 422, "Expected status code 422 Unprocessable Entity."
 
     movie_record = db_session.query(MovieModel).filter_by(name=movie["name"]).first()
@@ -134,10 +124,10 @@ def test_create_movie_invalid_data(client_moderator, db_session):
 
 
 def test_create_movie_internal_server_error(client_moderator, mocker):
-    client, _ = client_moderator
-
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.post(f"{URL_PREFIX}create/", json=examples.minimal_movie_example)
+    response = client_moderator.post(
+        f"{URL_PREFIX}create/", json=examples.minimal_movie_example
+    )
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."
@@ -145,10 +135,10 @@ def test_create_movie_internal_server_error(client_moderator, mocker):
 
 
 def test_update_movie_success(client_moderator, movie_fixture, db_session):
-    client, _ = client_moderator
-
     update_data = examples.minimal_movie_example
-    response = client.patch(f"{URL_PREFIX}{movie_fixture.uuid}", json=update_data)
+    response = client_moderator.patch(
+        f"{URL_PREFIX}{movie_fixture.uuid}", json=update_data
+    )
     assert response.status_code == 200, "Expected status code 200 OK."
 
     response_data = response.json()
@@ -157,24 +147,19 @@ def test_update_movie_success(client_moderator, movie_fixture, db_session):
 
 
 def test_update_movie_by_user(client_user, movie_fixture):
-    client, _ = client_user
-
     update_data = examples.minimal_movie_example
-    response = client.patch(f"{URL_PREFIX}{movie_fixture.uuid}", json=update_data)
+    response = client_user.patch(f"{URL_PREFIX}{movie_fixture.uuid}", json=update_data)
     assert response.status_code == 403, "Expected status code 200 Forbidden."
     response_data = response.json()
     assert response_data["detail"] == "Access denied. Moderator or admin required."
 
 
 def test_update_movie_not_found(client_moderator, movie_fixture, db_session):
-    client, _ = client_moderator
-
     movie_uuid = movie_fixture.uuid
-
     db_session.delete(movie_fixture)
     db_session.commit()
 
-    response = client.patch(
+    response = client_moderator.patch(
         f"{URL_PREFIX}{movie_uuid}", json=examples.minimal_movie_example
     )
     assert response.status_code == 404, "Expected status code 404 Forbidden."
@@ -182,10 +167,8 @@ def test_update_movie_not_found(client_moderator, movie_fixture, db_session):
 
 
 def test_update_movie_internal_server_error(client_moderator, movie_fixture, mocker):
-    client, _ = client_moderator
-
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.patch(
+    response = client_moderator.patch(
         f"{URL_PREFIX}{movie_fixture.uuid}/", json=examples.minimal_movie_example
     )
     assert (
@@ -195,9 +178,7 @@ def test_update_movie_internal_server_error(client_moderator, movie_fixture, moc
 
 
 def test_get_movie_success(client_user, movie_fixture, db_session):
-    client, _ = client_user
-
-    response = client.get(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_user.get(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 200, "Expected status code 200 OK."
 
     validated_response = MovieDetailSchema.model_validate(response.json())
@@ -208,9 +189,7 @@ def test_get_movie_success(client_user, movie_fixture, db_session):
 
 
 def test_delete_movie_success(client_moderator, movie_fixture, db_session):
-    client, _ = client_moderator
-
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 200, "Expected status code 200 OK."
     assert response.json()["message"] == "Movie deleted successfully"
 
@@ -219,21 +198,17 @@ def test_delete_movie_success(client_moderator, movie_fixture, db_session):
 
 
 def test_delete_movie_not_found(client_moderator, movie_fixture, db_session):
-    client, _ = client_moderator
-
     db_session.delete(movie_fixture)
     db_session.commit()
 
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Movie with the given ID was not found."
 
 
 def test_delete_movie_internal_server_error(client_moderator, movie_fixture, mocker):
-    client, _ = client_moderator
-
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
 
     assert (
         response.status_code == 500
@@ -244,9 +219,7 @@ def test_delete_movie_internal_server_error(client_moderator, movie_fixture, moc
 def test_delete_movie_bad_request_carts(
     client_moderator, db_session, movie_fixture, cart_item_fixture
 ):
-    client, _ = client_moderator
-
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 400, "Expected status code 400 Bad Request."
     assert (
         response.json()["detail"] == "Movie is in users' carts and cannot be deleted."
@@ -256,9 +229,7 @@ def test_delete_movie_bad_request_carts(
 def test_delete_movie_bad_request_purchased(
     client_moderator, db_session, movie_fixture, purchased_movie_fixture
 ):
-    client, _ = client_moderator
-
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 400, "Expected status code 400 Bad Request."
     assert (
         response.json()["detail"]
@@ -287,7 +258,6 @@ def test_get_movies_with_filters(
     response = client.get(f"{URL_PREFIX}?{filter_key}={filter_value}")
     assert response.status_code == 200, "Expected status code 200 OK."
     data = response.json()
-    print(data["movies"])
     assert "movies" in data
     assert len(data["movies"]) == expected_count
 
@@ -299,7 +269,6 @@ def test_get_movies_with_multiple_filters(db_session, movies_fixture, client):
     )
     assert response.status_code == 200, "Expected status code 200 OK."
     data = response.json()
-    print(data["movies"])
     assert "movies" in data
     assert len(data["movies"]) == 1
 
@@ -328,10 +297,9 @@ def test_get_movies_with_invalid_filter_does_not_crash(
 
 
 def test_user_create_movie_forbidden(client_user, db_session):
-    client, _ = client_user
     movie = examples.minimal_movie_example
 
-    response = client.post(f"{URL_PREFIX}create/", json=movie)
+    response = client_user.post(f"{URL_PREFIX}create/", json=movie)
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
     movie_record = db_session.query(MovieModel).filter_by(name=movie["name"]).first()
@@ -339,11 +307,9 @@ def test_user_create_movie_forbidden(client_user, db_session):
 
 
 def test_user_update_movie_forbidden(client_user, movie_fixture, db_session):
-    client, _ = client_user
     movie = examples.minimal_movie_example
 
-    response = client.patch(f"{URL_PREFIX}{movie_fixture.uuid}/", json=movie)
-    print(response.request)
+    response = client_user.patch(f"{URL_PREFIX}{movie_fixture.uuid}/", json=movie)
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
 
@@ -352,8 +318,7 @@ def test_user_update_movie_forbidden(client_user, movie_fixture, db_session):
 
 
 def test_user_delete_movie_forbidden(client_user, movie_fixture, db_session):
-    client, _ = client_user
-    response = client.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
+    response = client_user.delete(f"{URL_PREFIX}{movie_fixture.uuid}/")
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
 

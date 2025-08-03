@@ -5,18 +5,13 @@ from src.database import (
     MovieModel,
     CartItemModel,
     OrderStatusEnum,
-    PurchaseModel,
-    PaymentStatusEnum,
-    PaymentModel,
 )
 
 URL_PREFIX = "orders/"
 
 
 def test_create_order_not_found(client_user, db_session):
-    client, _ = client_user
-
-    response = client.post(f"{URL_PREFIX}create/")
+    response = client_user.post(f"{URL_PREFIX}create/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Cart not found."
 
@@ -84,9 +79,7 @@ def test_create_order_success(client_cart_with_item, db_session):
 
 
 def test_get_orders_success(client_user, order_fixture, db_session):
-    client, _ = client_user
-
-    response = client.get(URL_PREFIX)
+    response = client_user.get(URL_PREFIX)
     assert response.status_code == 200, "Expected status code 200."
     data = response.json()
     assert "orders" in data
@@ -101,9 +94,7 @@ def test_get_orders_success(client_user, order_fixture, db_session):
 
 
 def test_cancel_order_success(client_user, order_fixture, db_session):
-    client, _ = client_user
-
-    response = client.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
+    response = client_user.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
     assert response.json()["message"] == "Order successfully cancelled."
 
@@ -115,21 +106,17 @@ def test_cancel_order_success(client_user, order_fixture, db_session):
 
 
 def test_cancel_order_not_found(client_user, db_session):
-    client, _ = client_user
-
-    response = client.post(f"{URL_PREFIX}cancel/1/")
+    response = client_user.post(f"{URL_PREFIX}cancel/1/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Order with given ID was not found."
 
 
 def test_cancel_order_conflict_paid(client_user, order_fixture, db_session):
-    client, _ = client_user
-
     order_fixture.status = OrderStatusEnum.PAID
     db_session.commit()
     db_session.refresh(order_fixture)
 
-    response = client.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
+    response = client_user.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
     assert response.status_code == 409, "Expected status code 409 Conflict."
     assert (
         response.json()["detail"]
@@ -141,13 +128,11 @@ def test_cancel_order_conflict_paid(client_user, order_fixture, db_session):
 
 
 def test_cancel_order_conflict_cancelled(client_user, order_fixture, db_session):
-    client, _ = client_user
-
     order_fixture.status = OrderStatusEnum.CANCELLED
     db_session.commit()
     db_session.refresh(order_fixture)
 
-    response = client.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
+    response = client_user.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
     assert response.status_code == 409, "Expected status code 409 Conflict."
     assert response.json()["detail"] == "Order is already cancelled."
 
@@ -155,10 +140,8 @@ def test_cancel_order_conflict_cancelled(client_user, order_fixture, db_session)
 def test_cancel_order_internal_server_error(
     client_user, order_fixture, db_session, mocker
 ):
-    client, _ = client_user
-
     mocker.patch("src.routes.orders.Session.commit", side_effect=SQLAlchemyError)
-    response = client.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
+    response = client_user.post(f"{URL_PREFIX}cancel/{order_fixture.id}/")
     assert (
         response.status_code == 500
     ), "Expected status code 500 Internal Server Error."

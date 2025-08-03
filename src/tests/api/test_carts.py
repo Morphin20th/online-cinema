@@ -52,9 +52,7 @@ def test_add_movie_to_cart_movie_not_found(client_cart):
 
 
 def test_add_movie_to_cart_not_found(client_user, movie_fixture):
-    client, _ = client_user
-
-    response = client.post(f"{URL_PREFIX}add/", json=MOVIE_UUID)
+    response = client_user.post(f"{URL_PREFIX}add/", json=MOVIE_UUID)
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Cart not found."
 
@@ -141,15 +139,13 @@ def test_remove_movie_from_cart_success(
 
 
 def test_remove_movie_from_cart_not_found_cart(client_user):
-    client, cart = client_user
-
-    response = client.delete(f"{URL_PREFIX}items/{MOVIE_UUID['movie_uuid']}/")
+    response = client_user.delete(f"{URL_PREFIX}items/{MOVIE_UUID['movie_uuid']}/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Cart not found."
 
 
 def test_remove_movie_from_cart_not_found_movie(client_cart):
-    client, cart = client_cart
+    client, _ = client_cart
 
     response = client.delete(f"{URL_PREFIX}items/{MOVIE_UUID['movie_uuid']}/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
@@ -194,9 +190,7 @@ def test_remove_all_movies_from_cart_success(client_cart, movies_fixture, db_ses
 
 
 def test_remove_all_movies_from_cart_not_found(client_user):
-    client, _ = client_user
-
-    response = client.delete(f"{URL_PREFIX}items/")
+    response = client_user.delete(f"{URL_PREFIX}items/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Cart not found."
 

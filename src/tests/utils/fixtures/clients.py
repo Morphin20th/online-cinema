@@ -4,11 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from database import RefreshTokenModel
-from src.database import (
-    UserModel,
-    UserProfileModel,
-)
+from src.database import UserModel, UserProfileModel, RefreshTokenModel
 from src.security import JWTAuthInterface
 from src.tests.utils.utils import make_user_payload
 
@@ -23,7 +19,7 @@ def token():
 
 
 @pytest.fixture
-def client_user(
+def user_client_and_user(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_user
@@ -35,7 +31,7 @@ def client_user(
 
 
 @pytest.fixture
-def client_admin(
+def admin_client_and_user(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_admin
@@ -47,7 +43,7 @@ def client_admin(
 
 
 @pytest.fixture
-def client_moderator(
+def moderator_client_and_user(
     client: TestClient, jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
     from src.tests.utils.factories import create_moderator
@@ -59,7 +55,9 @@ def client_moderator(
 
 
 @pytest.fixture
-def registered_user(client: TestClient, db_session: Session) -> Tuple[dict, UserModel]:
+def inactive_user_and_payload(
+    client: TestClient, db_session: Session
+) -> Tuple[dict, UserModel]:
     payload = make_user_payload()
     client.post("accounts/register", json=payload)
     user = db_session.query(UserModel).filter_by(email=payload["email"]).first()
@@ -67,7 +65,13 @@ def registered_user(client: TestClient, db_session: Session) -> Tuple[dict, User
 
 
 @pytest.fixture
-def registered_activated_user(
+def inactive_user(inactive_user_and_payload) -> UserModel:
+    _, user = inactive_user_and_payload
+    return user
+
+
+@pytest.fixture
+def active_user_and_payload(
     client: TestClient, db_session: Session
 ) -> Tuple[dict, UserModel]:
     payload = make_user_payload()
@@ -76,6 +80,12 @@ def registered_activated_user(
     user.is_active = True
     db_session.commit()
     return payload, user
+
+
+@pytest.fixture
+def active_user(active_user_and_payload) -> UserModel:
+    _, user = active_user_and_payload
+    return user
 
 
 @pytest.fixture
@@ -99,3 +109,21 @@ def regular_user(db_session: Session, jwt_manager, settings) -> UserModel:
     db_session.add_all([profile, refresh_token])
     db_session.commit()
     return user
+
+
+@pytest.fixture
+def client_user(user_client_and_user) -> TestClient:
+    client, _ = user_client_and_user
+    return client
+
+
+@pytest.fixture
+def client_moderator(moderator_client_and_user) -> TestClient:
+    client, _ = moderator_client_and_user
+    return client
+
+
+@pytest.fixture
+def client_admin(admin_client_and_user) -> TestClient:
+    client, _ = admin_client_and_user
+    return client

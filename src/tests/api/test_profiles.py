@@ -11,8 +11,8 @@ from src.tests.examples.profile_examples import invalid_name_example
 URL_PREFIX = "profiles/users/"
 
 
-def test_profile_create_success_with_no_data(client_user, db_session):
-    client, user = client_user
+def test_profile_create_success_with_no_data(user_client_and_user, db_session):
+    client, user = user_client_and_user
 
     assert user.profile is None, "Profile already exists."
 
@@ -23,8 +23,8 @@ def test_profile_create_success_with_no_data(client_user, db_session):
     assert profile, "Profile was not created."
 
 
-def test_profile_create_success_with_data(client_user, db_session):
-    client, user = client_user
+def test_profile_create_success_with_data(user_client_and_user, db_session):
+    client, user = user_client_and_user
 
     assert user.profile is None, "Profile already exists."
 
@@ -41,8 +41,8 @@ def test_profile_create_success_with_data(client_user, db_session):
     assert profile.info == examples.profile_example["info"]
 
 
-def test_create_profile_with_avatar(client_user, db_session, mocker):
-    client, user = client_user
+def test_create_profile_with_avatar(user_client_and_user, db_session, mocker):
+    client, user = user_client_and_user
 
     mocker.patch("src.routes.profiles.save_avatar", return_value="/uploads/avatar.jpg")
     img = Image.new("RGB", (100, 100), color="blue")
@@ -62,8 +62,8 @@ def test_create_profile_with_avatar(client_user, db_session, mocker):
     assert result["avatar"] == "/uploads/avatar.jpg"
 
 
-def test_profile_create_conflict(client_user, db_session):
-    client, user = client_user
+def test_profile_create_conflict(user_client_and_user, db_session):
+    client, user = user_client_and_user
 
     assert user.profile is None, "Profile already exists."
 
@@ -95,8 +95,8 @@ def test_profile_create_conflict(client_user, db_session):
         ),
     ],
 )
-def test_profile_create_invalid_data(request_data, error_message, client_user):
-    client, user = client_user
+def test_profile_create_invalid_data(request_data, error_message, user_client_and_user):
+    client, user = user_client_and_user
 
     response = client.post(f"{URL_PREFIX}{user.id}/", data=request_data)
     assert response.status_code == 422, "Expected status code 422 Unprocessable Entity."
@@ -111,8 +111,10 @@ def test_profile_create_invalid_data(request_data, error_message, client_user):
         (examples.invalid_byte, "Invalid image format"),
     ],
 )
-def test_profile_create_invalid_images(request_data, error_message, client_user):
-    client, user = client_user
+def test_profile_create_invalid_images(
+    request_data, error_message, user_client_and_user
+):
+    client, user = user_client_and_user
 
     response = client.post(
         f"{URL_PREFIX}{user.id}/", data={}, files={"avatar": request_data["avatar"]}
@@ -122,8 +124,8 @@ def test_profile_create_invalid_images(request_data, error_message, client_user)
     assert error_message in response.json()["detail"]
 
 
-def test_update_profile_success_partial(client_user, db_session):
-    client, user = client_user
+def test_update_profile_success_partial(user_client_and_user, db_session):
+    client, user = user_client_and_user
 
     db_session.add(
         UserProfileModel(
@@ -150,8 +152,8 @@ def test_update_profile_success_partial(client_user, db_session):
     ), "'gender' is not expected to be updated."
 
 
-def test_profile_update_success_full(client_user, db_session):
-    client, user = client_user
+def test_profile_update_success_full(user_client_and_user, db_session):
+    client, user = user_client_and_user
 
     db_session.add(UserProfileModel(user_id=user.id))
     db_session.commit()
@@ -169,8 +171,8 @@ def test_profile_update_success_full(client_user, db_session):
     ), "'last_name' is expected to be updated."
 
 
-def test_profile_update_avatar(client_user, db_session, mocker):
-    client, user = client_user
+def test_profile_update_avatar(user_client_and_user, db_session, mocker):
+    client, user = user_client_and_user
 
     db_session.add(
         UserProfileModel(
@@ -198,9 +200,7 @@ def test_profile_update_avatar(client_user, db_session, mocker):
 def test_profile_update_forbidden_for_other_users(
     client_user, db_session, regular_user
 ):
-    client, _ = client_user
-
-    response = client.patch(
+    response = client_user.patch(
         f"{URL_PREFIX}{regular_user.id}/", data={"first_name": "Updated"}
     )
 
@@ -215,8 +215,8 @@ def test_profile_update_forbidden_for_other_users(
     assert profile.first_name == "Original"
 
 
-def test_profile_update_db_error(client_user, db_session, mocker):
-    client, user = client_user
+def test_profile_update_db_error(user_client_and_user, db_session, mocker):
+    client, user = user_client_and_user
 
     db_session.add(UserProfileModel(user_id=user.id))
     db_session.commit()
@@ -229,8 +229,6 @@ def test_profile_update_db_error(client_user, db_session, mocker):
 
 
 def test_admin_can_update_other_user_profile(client_admin, db_session, regular_user):
-    client, _ = client_admin
-
     update_data = {
         "first_name": "Updated",
         "last_name": "Name",
@@ -238,7 +236,7 @@ def test_admin_can_update_other_user_profile(client_admin, db_session, regular_u
         "info": "Updated by admin",
     }
 
-    response = client.patch(f"{URL_PREFIX}{regular_user.id}/", data=update_data)
+    response = client_admin.patch(f"{URL_PREFIX}{regular_user.id}/", data=update_data)
 
     assert response.status_code == 200
 
@@ -250,24 +248,18 @@ def test_admin_can_update_other_user_profile(client_admin, db_session, regular_u
 
 
 def test_admin_can_view_other_user_profile(client_admin, db_session, regular_user):
-    client, _ = client_admin
-
-    response = client.get(f"{URL_PREFIX}{regular_user.id}/")
+    response = client_admin.get(f"{URL_PREFIX}{regular_user.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
     assert "first_name", "last_name" in response.json()
 
 
 def test_user_cant_view_other_user_profile(client_user, db_session, regular_user):
-    client, _ = client_user
-
-    response = client.get(f"{URL_PREFIX}{regular_user.id}/")
+    response = client_user.get(f"{URL_PREFIX}{regular_user.id}/")
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Only admin or profile owner can view profile."
 
 
 def test_get_profile_not_found(client_admin, db_session):
-    client, _ = client_admin
-
-    response = client.get(f"{URL_PREFIX}999/")
+    response = client_admin.get(f"{URL_PREFIX}999/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Profile with given user ID was not found."

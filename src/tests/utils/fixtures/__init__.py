@@ -12,13 +12,18 @@ from src.tests.utils.fixtures.movies import (
     stars_fixture,
 )
 from src.tests.utils.fixtures.clients import (
-    registered_user,
-    registered_activated_user,
+    inactive_user,
+    active_user,
     token,
     regular_user,
-    client_user,
     client_admin,
     client_moderator,
+    client_user,
+    user_client_and_user,
+    admin_client_and_user,
+    moderator_client_and_user,
+    active_user_and_payload,
+    inactive_user_and_payload,
 )
 from src.tests.utils.fixtures.carts import (
     client_cart,
@@ -40,13 +45,18 @@ from src.tests.utils.fixtures.payments import (
 
 __all__ = [
     # clients
-    "registered_user",
-    "registered_activated_user",
-    "client_user",
+    "inactive_user",
+    "inactive_user_and_payload",
+    "active_user",
+    "admin_client_and_user",
+    "moderator_client_and_user",
+    "user_client_and_user",
     "client_moderator",
     "client_admin",
+    "client_user",
     "token",
     "regular_user",
+    "active_user_and_payload",
     # movies
     "star_fixture",
     "director_fixture",

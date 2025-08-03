@@ -39,9 +39,8 @@ def stripe_webhook_mock(stripe_service_mock, order_fixture):
 
 @pytest.fixture
 def client_stripe_mock(client_user, stripe_service_mock) -> TestClient:
-    client, _ = client_user
     app.dependency_overrides[get_stripe_service] = lambda: stripe_service_mock
-    yield client
+    yield client_user
     app.dependency_overrides.clear()
 
 
@@ -49,17 +48,15 @@ def client_stripe_mock(client_user, stripe_service_mock) -> TestClient:
 def client_stripe_session_failure(
     client_user, stripe_session_failure_mock
 ) -> TestClient:
-    client, _ = client_user
     app.dependency_overrides[get_stripe_service] = lambda: stripe_session_failure_mock
-    yield client
+    yield client_user
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def client_webhook(stripe_webhook_mock):
+def client_webhook(client_user, stripe_webhook_mock):
     app.dependency_overrides[get_stripe_service] = lambda: stripe_webhook_mock
-    client = TestClient(app)
-    yield client
+    yield client_user
     app.dependency_overrides.clear()
 
 

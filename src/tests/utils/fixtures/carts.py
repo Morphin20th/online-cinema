@@ -7,8 +7,8 @@ from src.database import CartModel, CartItemModel
 
 
 @pytest.fixture
-def client_cart(db_session, client_user) -> Tuple[TestClient, CartModel]:
-    client, user = client_user
+def client_cart(db_session, user_client_and_user) -> Tuple[TestClient, CartModel]:
+    client, user = user_client_and_user
 
     cart = CartModel(user=user)
     db_session.add(cart)

@@ -10,9 +10,9 @@ from src.dependencies import (
 
 
 def test_get_current_user_success(
-    client_user, db_session, jwt_manager, mock_redis, mocker
+    user_client_and_user, db_session, jwt_manager, mock_redis, mocker
 ):
-    client, user = client_user
+    client, user = user_client_and_user
 
     token = client.headers["Authorization"].split()[1]
 
@@ -59,8 +59,7 @@ def test_get_current_user_invalid_auth_format(mocker):
 
 
 def test_get_current_user_blacklisted_token(mocker, client_user, mock_redis):
-    client, _ = client_user
-    token = client.headers["Authorization"].split()[1]
+    token = client_user.headers["Authorization"].split()[1]
 
     mock_redis.get.return_value = "1"
 
@@ -95,10 +94,9 @@ def test_get_current_user_invalid_token(mocker, jwt_manager, mock_redis):
 
 
 def test_get_current_user_inactive_user(
-    db_session, jwt_manager, mock_redis, registered_user
+    db_session, jwt_manager, mock_redis, inactive_user
 ):
-    _, user = registered_user
-    token = jwt_manager.create_access_token(data={"user_id": user.id})
+    token = jwt_manager.create_access_token(data={"user_id": inactive_user.id})
 
     mock_redis.get.return_value = None
 
@@ -125,31 +123,31 @@ def test_get_current_user_not_found(db_session, jwt_manager, mock_redis):
     assert exc_info.value.detail == "User not found."
 
 
-def test_admin_required_with_admin(client_admin):
-    _, user = client_admin
+def test_admin_required_with_admin(admin_client_and_user):
+    _, user = admin_client_and_user
     assert admin_required(user) == user
 
 
-def test_admin_required_with_non_admin(client_user):
-    _, user = client_user
+def test_admin_required_with_non_admin(user_client_and_user):
+    _, user = user_client_and_user
     with pytest.raises(HTTPException) as exc_info:
         admin_required(user)
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Access denied. Admin privileges required."
 
 
-def test_moderator_or_admin_required_with_admin(client_admin):
-    _, user = client_admin
+def test_moderator_or_admin_required_with_admin(admin_client_and_user):
+    _, user = admin_client_and_user
     assert moderator_or_admin_required(user) == user
 
 
-def test_moderator_or_admin_required_with_moderator(client_moderator):
-    _, user = client_moderator
+def test_moderator_or_admin_required_with_moderator(moderator_client_and_user):
+    _, user = moderator_client_and_user
     assert moderator_or_admin_required(user) == user
 
 
-def test_moderator_or_admin_required_with_user(client_user):
-    _, user = client_user
+def test_moderator_or_admin_required_with_user(user_client_and_user):
+    _, user = user_client_and_user
     with pytest.raises(HTTPException) as exc_info:
         moderator_or_admin_required(user)
     assert exc_info.value.status_code == 403

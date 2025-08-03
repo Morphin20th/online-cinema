@@ -1,5 +1,3 @@
-import math
-
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.database import GenreModel, MovieModel
@@ -9,10 +7,8 @@ URL_PREFIX = "movies/genres/"
 
 
 def test_create_genre_success(db_session, client_moderator):
-    client, _ = client_moderator
-
     genre_name = "genre"
-    response = client.post(f"{URL_PREFIX}create/", json={"name": genre_name})
+    response = client_moderator.post(f"{URL_PREFIX}create/", json={"name": genre_name})
     assert response.status_code == 201, "Expected status code 200 OK."
     data = response.json()
     assert "id" in data and "name" in data
@@ -24,9 +20,9 @@ def test_create_genre_success(db_session, client_moderator):
 
 
 def test_create_genre_conflict(db_session, genre_fixture, client_moderator):
-    client, _ = client_moderator
-
-    response = client.post(f"{URL_PREFIX}create/", json={"name": genre_fixture.name})
+    response = client_moderator.post(
+        f"{URL_PREFIX}create/", json={"name": genre_fixture.name}
+    )
     assert response.status_code == 409, "Expected status code 409 Conflict."
     assert (
         response.json()["detail"]
@@ -35,11 +31,9 @@ def test_create_genre_conflict(db_session, genre_fixture, client_moderator):
 
 
 def test_create_genre_internal_server_error(db_session, client_moderator, mocker):
-    client, _ = client_moderator
-
     genre_name = "genre"
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.post(f"{URL_PREFIX}create/", json={"name": genre_name})
+    response = client_moderator.post(f"{URL_PREFIX}create/", json={"name": genre_name})
 
     assert (
         response.status_code == 500
@@ -48,10 +42,8 @@ def test_create_genre_internal_server_error(db_session, client_moderator, mocker
 
 
 def test_update_genre_success(db_session, genre_fixture, client_moderator):
-    client, _ = client_moderator
-
     genre_name = "genre"
-    response = client.patch(
+    response = client_moderator.patch(
         f"{URL_PREFIX}{genre_fixture.id}/", json={"name": genre_name}
     )
     assert response.status_code == 200, "Expected status code 200 OK."
@@ -63,12 +55,10 @@ def test_update_genre_success(db_session, genre_fixture, client_moderator):
 
 
 def test_update_genre_not_found(db_session, genre_fixture, client_moderator):
-    client, _ = client_moderator
-
     db_session.delete(genre_fixture)
     db_session.commit()
 
-    response = client.patch(
+    response = client_moderator.patch(
         f"{URL_PREFIX}{genre_fixture.id}/", json={"name": genre_fixture.name}
     )
     assert response.status_code == 404, "Expected status code 404 Not Found."
@@ -78,10 +68,8 @@ def test_update_genre_not_found(db_session, genre_fixture, client_moderator):
 def test_update_genre_internal_server_error(
     db_session, genre_fixture, client_moderator, mocker
 ):
-    client, _ = client_moderator
-
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.patch(
+    response = client_moderator.patch(
         f"{URL_PREFIX}{genre_fixture.id}/", json={"name": genre_fixture.name}
     )
 
@@ -109,7 +97,7 @@ def test_get_genres_with_params(db_session, client, genres_fixture):
 
     assert response.status_code == 200, "Expected status code 200 OK."
     assert len(response_data["genres"]) == 3, "Expected 3 genres."
-    assert response_data["total_pages"] == math.ceil(10 / 3)
+    assert response_data["total_pages"] == 4
     assert response_data["total_items"] == amount, f"Expected {amount} items."
 
     genres = db_session.query(GenreModel).all()
@@ -117,9 +105,7 @@ def test_get_genres_with_params(db_session, client, genres_fixture):
 
 
 def test_delete_genre_success(db_session, client_moderator, genre_fixture):
-    client, _ = client_moderator
-
-    response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{genre_fixture.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
     assert response.json()["message"] == "Genre deleted successfully"
 
@@ -130,22 +116,18 @@ def test_delete_genre_success(db_session, client_moderator, genre_fixture):
 def test_delete_genre_internal_server_error(
     client_moderator, genre_fixture, db_session, mocker
 ):
-    client, _ = client_moderator
-
     mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
-    response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{genre_fixture.id}/")
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Error occurred while trying to delete genre."
 
 
 def test_delete_genre_not_found(client_moderator, genre_fixture, db_session):
-    client, _ = client_moderator
-
     db_session.delete(genre_fixture)
     db_session.commit()
 
-    response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
+    response = client_moderator.delete(f"{URL_PREFIX}{genre_fixture.id}/")
     assert response.status_code == 404, "Expected status code 404 Not Found."
     assert response.json()["detail"] == "Genre with the given ID was not found."
 
@@ -161,7 +143,6 @@ def test_get_movies_by_genre_success(
     movies_fixture,
 ):
     movies_fixture(5)
-    client, _ = client_user
 
     another_genre = create_genre(db_session, name="comedy")
     db_session.commit()
@@ -184,7 +165,7 @@ def test_get_movies_by_genre_success(
     db_session.commit()
     db_session.refresh(other_movie)
 
-    response = client.get(f"{URL_PREFIX}{another_genre.id}/")
+    response = client_user.get(f"{URL_PREFIX}{another_genre.id}/")
     assert response.status_code == 200, "Expected status code 200 OK."
     response_data = response.json()
     assert "movies" in response_data
@@ -198,9 +179,7 @@ def test_get_movies_by_genre_success(
 
 
 def test_user_create_genre_forbidden(client_user, db_session):
-    client, _ = client_user
-
-    response = client.post(f"{URL_PREFIX}create/", json={"name": "genre"})
+    response = client_user.post(f"{URL_PREFIX}create/", json={"name": "genre"})
     assert response.status_code == 403, "Expected status code  403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
     genre = db_session.query(GenreModel).filter_by(name="genre").first()
@@ -209,9 +188,9 @@ def test_user_create_genre_forbidden(client_user, db_session):
 
 
 def test_user_update_genre_forbidden(client_user, genre_fixture, db_session):
-    client, _ = client_user
-
-    response = client.patch(f"{URL_PREFIX}{genre_fixture.id}/", json={"name": "genre"})
+    response = client_user.patch(
+        f"{URL_PREFIX}{genre_fixture.id}/", json={"name": "genre"}
+    )
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
 
@@ -220,8 +199,7 @@ def test_user_update_genre_forbidden(client_user, genre_fixture, db_session):
 
 
 def test_user_delete_genre_forbidden(client_user, genre_fixture, db_session):
-    client, _ = client_user
-    response = client.delete(f"{URL_PREFIX}{genre_fixture.id}/")
+    response = client_user.delete(f"{URL_PREFIX}{genre_fixture.id}/")
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Moderator or admin required."
 

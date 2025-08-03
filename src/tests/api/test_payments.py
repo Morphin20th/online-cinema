@@ -1,5 +1,5 @@
-from dependencies import get_stripe_service
 from src.database import OrderStatusEnum
+from src.dependencies import get_stripe_service
 
 URL_PREFIX = "payments/"
 
@@ -103,8 +103,7 @@ def test_stripe_webhook_payment_intent_failed(client_webhook):
 
 
 def test_get_payments_success(client_user, payment_fixture):
-    client, _ = client_user
-    response = client.get(URL_PREFIX)
+    response = client_user.get(URL_PREFIX)
 
     assert response.status_code == 200
     data = response.json()
