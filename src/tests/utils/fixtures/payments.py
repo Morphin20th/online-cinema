@@ -1,9 +1,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from src.services import StripeService
 from src.database import PaymentModel, PaymentStatusEnum
 from src.dependencies import get_stripe_service
 from src.main import app
+
+
+@pytest.fixture
+def stripe_service(settings):
+    return StripeService(
+        api_key="sk_test_123",
+        webhook_key="whsec_123",
+        app_url=f"{settings.APP_URL}",
+    )
 
 
 @pytest.fixture

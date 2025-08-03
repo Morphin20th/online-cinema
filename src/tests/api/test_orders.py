@@ -1,10 +1,12 @@
 from sqlalchemy.exc import SQLAlchemyError
 
+from database import PaymentModel
 from src.database import (
     OrderModel,
     MovieModel,
     CartItemModel,
     OrderStatusEnum,
+    PaymentStatusEnum,
 )
 
 URL_PREFIX = "orders/"
@@ -150,4 +152,57 @@ def test_cancel_order_internal_server_error(
     )
 
 
-# TODO refund tests
+def test_refund_order_success(
+    client_stripe_mock,
+    order_paid_fixture,
+    payment_fixture,
+    stripe_service_mock,
+    db_session,
+):
+    response = client_stripe_mock.post(f"{URL_PREFIX}refund/{order_paid_fixture.id}/")
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert response.json() == {"message": "Order successfully refunded."}
+
+    db_session.refresh(order_paid_fixture)
+    db_session.refresh(payment_fixture)
+    assert order_paid_fixture.status == OrderStatusEnum.CANCELLED
+    assert payment_fixture.status == PaymentStatusEnum.REFUNDED
+
+
+def test_refund_order_not_found(client_user):
+    response = client_user.post(f"{URL_PREFIX}refund/999999/")
+    assert response.status_code == 404, "Expected status code 404 Not Found."
+    assert response.json()["detail"] == "Order with given ID was not found."
+
+
+def test_refund_order_not_paid(client_user, order_fixture):
+    response = client_user.post(f"{URL_PREFIX}refund/{order_fixture.id}/")
+    assert response.status_code == 409, "Expected status code 409 Conflict."
+    assert response.json()["detail"] == "Order is not paid."
+
+
+def test_refund_order_cancelled(client_user, db_session, order_fixture):
+    order_fixture.status = OrderStatusEnum.CANCELLED
+    db_session.commit()
+
+    response = client_user.post(f"{URL_PREFIX}refund/{order_fixture.id}/")
+    assert response.status_code == 409, "Expected status code 409 Conflict."
+    assert response.json()["detail"] == "Cancelled orders cannot be refunded."
+
+
+def test_refund_order_missing_payment(client_user, db_session, order_paid_fixture):
+    db_session.query(PaymentModel).filter_by(order_id=order_paid_fixture.id).delete()
+    db_session.commit()
+
+    response = client_user.post(f"{URL_PREFIX}refund/{order_paid_fixture.id}/")
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert response.json()["detail"] == "No valid payment found to refund."
+
+
+def test_refund_order_no_external_payment_id(client_user, payment_fixture, db_session):
+    payment_fixture.external_payment_id = None
+    db_session.commit()
+
+    response = client_user.post(f"{URL_PREFIX}refund/{payment_fixture.order_id}/")
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert response.json()["detail"] == "No valid payment found to refund."

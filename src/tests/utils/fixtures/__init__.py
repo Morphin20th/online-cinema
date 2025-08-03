@@ -34,6 +34,7 @@ from src.tests.utils.fixtures.orders import (
     order_paid_fixture,
 )
 from src.tests.utils.fixtures.payments import (
+    stripe_service,
     client_stripe_mock,
     client_stripe_session_failure,
     stripe_session_failure_mock,
@@ -76,6 +77,7 @@ __all__ = [
     "order_fixture",
     "order_paid_fixture",
     # payments
+    "stripe_service",
     "client_stripe_mock",
     "client_stripe_session_failure",
     "stripe_session_failure_mock",

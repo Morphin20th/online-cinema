@@ -155,6 +155,25 @@ def test_resend_activation_already_activated(client, db_session, active_user):
     assert response.json()["message"] == "User is already activated."
 
 
+def test_resend_activation_not_found(client):
+    response = client.post(
+        "accounts/resend-activation", json={"email": "nonexistent@email.com"}
+    )
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == f"User with given email nonexistent@email.com not found."
+    )
+
+
+def test_resend_activation_valid(client, inactive_user):
+    response = client.post(
+        "accounts/resend-activation", json={"email": inactive_user.email}
+    )
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert response.json()["detail"] == "Activation token still valid."
+
+
 def test_resend_activation_internal_server_error(
     client, db_session, inactive_user, mocker
 ):
@@ -404,6 +423,17 @@ def test_reset_password_request_active_user(client, active_user, db_session):
         .first()
     )
     assert reset_token, "Password Reset token was not crated."
+
+
+def test_reset_password_request_internal_server_error(client, active_user, mocker):
+    mocker.patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError)
+    response = client.post(
+        "accounts/reset-password/request/", json={"email": active_user.email}
+    )
+    assert (
+        response.status_code == 500
+    ), "Expected status code 500 Internal Server Error."
+    assert response.json()["detail"] == "Something went wrong."
 
 
 @pytest.fixture

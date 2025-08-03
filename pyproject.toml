@@ -28,12 +28,13 @@ redis = "^6.2.0"
 python-multipart = "^0.0.20"
 pillow = "^11.2.1"
 stripe = "^12.2.0"
-pytest-mock = "^3.14.1"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.1"
 black = {extras = ["d"], version = "^25.1.0"}
 pytest = "^8.4.1"
+pytest-mock = "^3.14.1"
+pytest-cov = "^6.2.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
