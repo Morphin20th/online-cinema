@@ -130,7 +130,108 @@ def test_admin_get_user_cart_not_found(client_admin, db_session):
     assert response.json()["detail"] == "User with given ID was not found."
 
 
-# user cannot access tests TODO: payments, orders
+def test_admin_get_orders_success(client_admin, order_fixture):
+    response = client_admin.get(f"{URL_PREFIX}orders/")
+    data = response.json()
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert "orders" in data
+    assert len(data["orders"]) == 1
+
+
+def test_admin_get_orders_filter_by_user_id(client_admin, order_fixture):
+    first_response = client_admin.get(
+        f"{URL_PREFIX}orders/?user_id={order_fixture.user_id}"
+    )
+    data = first_response.json()
+    assert first_response.status_code == 200, "Expected status code 200 OK."
+    assert "orders" in data
+    assert len(data["orders"]) == 1
+
+    second_response = client_admin.get(f"{URL_PREFIX}orders/?user_id=99")
+    data = second_response.json()
+    assert second_response.status_code == 200, "Expected status code 200 OK."
+    assert "orders" in data
+    assert len(data["orders"]) == 0
+
+
+def test_admin_get_orders_filter_by_status(client_admin, order_paid_fixture):
+    response = client_admin.get(f"{URL_PREFIX}orders/?status=paid")
+    data = response.json()
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert len(data["orders"]) == 1
+    assert data["orders"][0]["status"] == "paid"
+
+    second_response = client_admin.get(f"{URL_PREFIX}orders/?status=pending")
+    data = second_response.json()
+    assert second_response.status_code == 200, "Expected status code 200 OK."
+    assert len(data["orders"]) == 0
+
+
+def test_admin_get_orders_invalid_date_format(client_admin):
+    response = client_admin.get(f"{URL_PREFIX}orders/?created_at=2023/01/01")
+
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert response.json()["detail"] == "Invalid date format. Use YYYY-MM-DD"
+
+
+def test_admin_get_orders_invalid_status(client_admin):
+    response = client_admin.get(f"{URL_PREFIX}orders/?status=invalid_status")
+
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert (
+        response.json()["detail"]
+        == "Invalid status value. Allowed values: ['pending', 'paid', 'cancelled']"
+    )
+
+
+def test_admin_get_payments_success(client_admin, payment_fixture):
+    response = client_admin.get(f"{URL_PREFIX}payments/")
+    data = response.json()
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert "payments" in data
+    assert len(data["payments"]) == 1
+
+
+def test_admin_get_payments_filter_by_email(client_admin, payment_fixture):
+    user = payment_fixture.user
+    response = client_admin.get(f"{URL_PREFIX}payments/?email={user.email}")
+    data = response.json()
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert len(data["payments"]) == 1
+
+    response = client_admin.get(f"{URL_PREFIX}payments/?email=nonexistent@test.com")
+    data = response.json()
+    assert len(data["payments"]) == 0
+
+
+def test_admin_get_payments_filter_by_status(client_admin, payment_fixture):
+    response = client_admin.get(f"{URL_PREFIX}payments/?status=successful")
+    data = response.json()
+    assert response.status_code == 200, "Expected status code 200 OK."
+    assert len(data["payments"]) == 1
+    assert data["payments"][0]["status"] == "successful"
+
+    response = client_admin.get(f"{URL_PREFIX}payments/?status=cancelled")
+    data = response.json()
+    assert len(data["payments"]) == 0
+
+
+def test_admin_get_payments_invalid_date_format(client_admin):
+    response = client_admin.get(f"{URL_PREFIX}payments/?created_at=2023/01/01")
+    assert response.status_code == 400, "Expected status code 400 Bad Request."
+    assert response.json()["detail"] == "Invalid date format. Use YYYY-MM-DD"
+
+
+def test_admin_get_payments_invalid_status(client_admin):
+    response = client_admin.get(f"{URL_PREFIX}payments/?status=invalid_status")
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "Invalid status value. Allowed values: ['successful', 'cancelled', 'refunded']"
+    )
+
+
+# user cannot access tests
 
 
 def test_user_activate_specific_user_forbidden(client_user):
@@ -152,5 +253,17 @@ def test_user_change_specific_user_group_forbidden(client_user):
 
 def test_user_get_specific_user_cart_forbidden(client_user):
     response = client_user.get(f"{URL_PREFIX}carts/999/")
+    assert response.status_code == 403, "Expected status code 403 Forbidden."
+    assert response.json()["detail"] == "Access denied. Admin privileges required."
+
+
+def test_user_get_orders_forbidden(client_user):
+    response = client_user.get(f"{URL_PREFIX}orders/")
+    assert response.status_code == 403, "Expected status code 403 Forbidden."
+    assert response.json()["detail"] == "Access denied. Admin privileges required."
+
+
+def test_user_get_payments_forbidden(client_user):
+    response = client_user.get(f"{URL_PREFIX}payments/")
     assert response.status_code == 403, "Expected status code 403 Forbidden."
     assert response.json()["detail"] == "Access denied. Admin privileges required."

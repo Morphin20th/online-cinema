@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, status as http_status
 from fastapi.params import Depends
 from pydantic import EmailStr
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status as http_status
 
 from src.database import (
     UserModel,
@@ -225,7 +224,8 @@ def change_user_group(
             description="Bad Request",
             examples={
                 "invalid_date": "Invalid date format. Use YYYY-MM-DD",
-                "invalid_status": "Invalid status value. Allowed values: pending, paid, cancelled",
+                "invalid_status": "Invalid status value. "
+                "Allowed values: ['pending', 'paid', 'cancelled']",
             },
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
@@ -252,7 +252,7 @@ def get_orders(
         None, description="Filter by order date (YYYY-MM-DD)"
     ),
     status: Optional[str] = Query(None, description="Filter by order status"),
-):
+) -> AdminOrderListSchema:
     """Get list of all orders (admin only).
 
     Args:
@@ -410,7 +410,8 @@ def get_specific_user_cart(
             description="Bad Request",
             examples={
                 "invalid_date": "Invalid date format. Use YYYY-MM-DD",
-                "invalid_status": "Invalid status value. Allowed values: successful, pending, refunded",
+                "invalid_status": "Invalid status value. "
+                "Allowed values: ['successful', 'cancelled', 'refunded']",
             },
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(

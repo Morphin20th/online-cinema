@@ -1,5 +1,4 @@
-from fastapi import Depends, HTTPException
-from starlette import status
+from fastapi import Depends, HTTPException, status
 
 from src.database import UserModel, UserGroupEnum
 from src.dependencies.auth import get_current_user

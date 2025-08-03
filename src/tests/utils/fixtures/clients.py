@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.database import UserModel, UserProfileModel, RefreshTokenModel
+from src.main import app
 from src.security import JWTAuthInterface
 from src.tests.utils.utils import make_user_payload
 
@@ -32,8 +33,10 @@ def user_client_and_user(
 
 @pytest.fixture
 def admin_client_and_user(
-    client: TestClient, jwt_manager: JWTAuthInterface, db_session
+    jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
+    client = TestClient(app)
+
     from src.tests.utils.factories import create_admin
 
     user = create_admin(db_session, jwt_manager)
@@ -44,8 +47,9 @@ def admin_client_and_user(
 
 @pytest.fixture
 def moderator_client_and_user(
-    client: TestClient, jwt_manager: JWTAuthInterface, db_session
+    jwt_manager: JWTAuthInterface, db_session
 ) -> Tuple[TestClient, UserModel]:
+    client = TestClient(app)
     from src.tests.utils.factories import create_moderator
 
     user = create_moderator(db_session, jwt_manager)

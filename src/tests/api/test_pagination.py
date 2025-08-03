@@ -1,5 +1,5 @@
 from fastapi import Request
-from starlette.datastructures import URL
+from fastapi.datastructures import URL
 
 from src.database import MovieModel
 from src.utils import Paginator
