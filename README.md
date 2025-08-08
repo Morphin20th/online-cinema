@@ -40,9 +40,6 @@ A backend service designed for a movie catalog and management platform with user
 - **Pytest**: Tests
 
 ---
-Here's a refined **Getting Started** section that strongly recommends Docker while keeping Poetry instructions for developers who need them:
-
----
 
 ## Getting Started
 
@@ -64,6 +61,23 @@ Access:
 - API: `http://localhost:8001`
 - Mailhog: `http://localhost:8025`
 
+### 🖥️ Local Setup (Advanced)
+```bash
+# 1. Install system dependencies
+sudo apt install postgresql redis  # Ubuntu example
+
+# 2. Set up environment
+python -m venv venv && source venv/bin/activate
+pip install poetry && poetry install
+
+# 3. Start services
+sudo systemctl start postgresql redis
+docker compose up mailhog stripe-cli -d  # Requires Docker
+
+# 4. Run migrations and server
+alembic upgrade head
+uvicorn main:app --reload --port 8001
+```
 
 ### Run with Docker
 

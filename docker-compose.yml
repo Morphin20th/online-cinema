@@ -81,5 +81,19 @@ services:
       redis:
         condition: service_started
 
+  stripe:
+    image: stripe/stripe-cli:latest
+    container_name: stripe-cli
+    entrypoint: >
+      sh -c "stripe listen --forward-to $${STRIPE_WEBHOOK_FORWARD_URL}"
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_FORWARD_URL: ${STRIPE_WEBHOOK_FORWARD_URL}
+    env_file:
+      - .env
+    depends_on:
+      app:
+        condition: service_started
+
 volumes:
   pgdata:
