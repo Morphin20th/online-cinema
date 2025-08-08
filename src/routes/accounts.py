@@ -7,7 +7,7 @@ from redis import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.config import Settings
+from src.config import Settings, get_settings
 from src.database import (
     UserModel,
     UserGroupModel,
@@ -16,11 +16,10 @@ from src.database import (
     RefreshTokenModel,
     PasswordResetTokenModel,
     CartModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import (
     get_jwt_auth_manager,
-    get_settings,
     get_email_sender,
     get_redis_client,
     get_token,
@@ -95,7 +94,7 @@ def create_user(
     existing_user = get_user_by_email(user_data.email, db)
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail=f"User with this email {user_data.email} already exists.",
         )
 
@@ -458,6 +457,12 @@ def logout_user(
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden", examples={"inactive_user": "Inactive user."}
         ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={
+                "refresh_missing": "Refresh token not found.",
+            },
+        ),
     },
 )
 def refresh_token(
@@ -500,7 +505,7 @@ def refresh_token(
     )
     if not token_record:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Refresh token not found."
         )
 
     if token_record.expires_at < datetime.now(timezone.utc):
@@ -658,7 +663,7 @@ def reset_password_request(
 
 
 @router.post(
-    "/accounts/reset-password/complete/",
+    "/reset-password/complete/",
     response_model=MessageResponseSchema,
     status_code=status.HTTP_200_OK,
     summary="Password Reset Completion",

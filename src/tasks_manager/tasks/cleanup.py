@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from src.database import ActivationTokenModel, RefreshTokenModel
-from src.database.session import PostgreSQLSessionLocal
+from src.database.session_postgres import PostgreSQLSessionLocal
 from src.tasks_manager.celery_app import celery_app
 
 
@@ -27,11 +27,11 @@ def delete_expired_tokens():
 
         db.commit()
         print(
-            f"Deleted: {deleted_activation} activation tokens, {deleted_refresh} refresh tokens"
+            f"Deleted tokens - Activation: {deleted_activation}, Refresh: {deleted_refresh}"
         )
     except Exception as e:
         db.rollback()
-        raise e
-
+        print(f"Error deleting expired tokens: {str(e)}")
+        raise
     finally:
         db.close()

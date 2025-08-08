@@ -14,8 +14,7 @@ from src.schemas import (
     MoviesByGenreSchema,
     MovieDetailSchema,
 )
-from src.database import GenreModel, MovieModel
-from src.database.session import get_db
+from src.database import GenreModel, MovieModel, get_db
 from src.dependencies import get_current_user, moderator_or_admin_required
 from src.utils import Paginator, aggregate_error_examples
 
@@ -73,7 +72,7 @@ def create_genre(data: BaseGenreSchema, db: Session = Depends(get_db)) -> GenreS
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre creation.",
+            detail="Error occurred while trying to create genre.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -136,7 +135,7 @@ def update_genre(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre update.",
+            detail="Error occurred while trying to update genre.",
         )
     return GenreSchema.model_validate(genre)
 
@@ -210,7 +209,7 @@ def get_movies_by_genre(
 
 
 @router.delete(
-    "/genres/{genre_id}/",
+    "/{genre_id}/",
     response_model=MessageResponseSchema,
     dependencies=[Depends(moderator_or_admin_required)],
     summary="Delete Genre",
@@ -261,7 +260,7 @@ def delete_genre(genre_id: int, db: Session = Depends(get_db)) -> MessageRespons
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error occurred during genre deleting.",
+            detail="Error occurred while trying to delete genre.",
         )
 
     return MessageResponseSchema(message="Genre deleted successfully")

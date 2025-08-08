@@ -32,6 +32,9 @@ stripe = "^12.2.0"
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.1"
 black = {extras = ["d"], version = "^25.1.0"}
+pytest = "^8.4.1"
+pytest-mock = "^3.14.1"
+pytest-cov = "^6.2.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

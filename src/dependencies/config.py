@@ -1,26 +1,10 @@
-import os
-
 from fastapi import Depends
 from redis import Redis
 
-from src.config import Settings, ProductionSettings, DevelopmentSettings
+from src.config import Settings, get_settings
 from src.services import EmailSenderInterface, StripeServiceInterface
 from src.services.email_service import EmailSender
 from src.services.stripe import StripeService
-
-
-def get_settings() -> Settings:
-    """
-    Dependency to get current application settings based on the ENVIRONMENT variable.
-
-    Returns:
-        Settings: An instance of ProductionSettings or DevelopmentSettings.
-    """
-    environment = os.getenv("ENVIRONMENT", "development")
-
-    if environment == "production":
-        return ProductionSettings()
-    return DevelopmentSettings()
 
 
 def get_email_sender(

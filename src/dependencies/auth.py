@@ -2,10 +2,9 @@ from fastapi import Request, HTTPException, status, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from src.config import Settings
-from src.database import UserModel
-from src.database.session import get_db
-from src.dependencies.config import get_settings, get_redis_client
+from src.config import Settings, get_settings
+from src.database import UserModel, get_db
+from src.dependencies.config import get_redis_client
 from src.security.interfaces import JWTAuthInterface
 from src.security.token_manager import JWTManager
 

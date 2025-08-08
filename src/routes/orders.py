@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status
 
 from src.database import (
     OrderItemModel,
@@ -15,8 +14,8 @@ from src.database import (
     PaymentModel,
     PaymentStatusEnum,
     PurchaseModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service
 from src.schemas import (
     CURRENT_USER_EXAMPLES,
@@ -52,9 +51,7 @@ router = APIRouter()
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -247,9 +244,7 @@ def get_orders(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -418,7 +413,6 @@ def refund_order(
         )
 
     try:
-
         stripe_service.create_refund(
             payment_intent_id=latest_payment.external_payment_id
         )

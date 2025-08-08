@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 
-from src.dependencies import admin_required, get_settings
+from src.dependencies import admin_required
+from src.config import get_settings
 
 router = APIRouter()
 

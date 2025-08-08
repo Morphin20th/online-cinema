@@ -21,8 +21,8 @@ from src.database import (
     PaymentStatusEnum,
     PaymentModel,
     PurchaseModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import get_current_user, get_stripe_service, get_email_sender
 from src.schemas import (
     CURRENT_USER_EXAMPLES,
@@ -50,15 +50,11 @@ router = APIRouter()
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
-            examples={
-                "no_order_found": "No pending order found.",
-            },
+            examples={"no_order_found": "No pending order found."},
         ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",
@@ -156,9 +152,7 @@ def return_cancel() -> MessageResponseSchema:
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
-            examples={
-                "no_order_found": "Order not found.",
-            },
+            examples={"no_order_found": "Order not found."},
         ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",
@@ -314,9 +308,7 @@ async def stripe_webhook(
         ),
         status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={
-                "inactive_user": "Inactive user.",
-            },
+            examples={"inactive_user": "Inactive user."},
         ),
     },
 )

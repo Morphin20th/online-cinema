@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, status as http_status
 from fastapi.params import Depends
 from pydantic import EmailStr
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from starlette import status as http_status
 
 from src.database import (
     UserModel,
@@ -17,8 +16,8 @@ from src.database import (
     PaymentModel,
     PaymentStatusEnum,
     PaymentItemModel,
+    get_db,
 )
-from src.database.session import get_db
 from src.dependencies import admin_required
 from src.routes.carts import get_cart_with_items
 from src.schemas import (
@@ -52,16 +51,16 @@ def get_user_by_email(email: EmailStr, db: Session) -> Optional[UserModel]:
         http_status.HTTP_200_OK: aggregate_error_examples(
             description="OK",
             examples={
-                "message": "User account activated successfully by admin",
-                "activated": "User account is already active",
+                "message": "User account activated successfully by admin.",
+                "activated": "User account is already active.",
             },
-        ),
-        http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
-            description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
         ),
         http_status.HTTP_403_FORBIDDEN: aggregate_error_examples(
             description="Forbidden",
-            examples={"inactive_user": "Your account is not activated."},
+            examples={
+                "inactive_user": "Your account is not activated.",
+                **ADMIN_REQUIRED_EXAMPLES,
+            },
         ),
         http_status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -100,7 +99,7 @@ def admin_activate_user(
         )
 
     if user.is_active:
-        return MessageResponseSchema(message="User account is already active")
+        return MessageResponseSchema(message="User account is already active.")
 
     try:
         user.is_active = True
@@ -115,7 +114,9 @@ def admin_activate_user(
             detail="Error occurred during user account activation.",
         )
 
-    return MessageResponseSchema(message="User account activated successfully by admin")
+    return MessageResponseSchema(
+        message="User account activated successfully by admin."
+    )
 
 
 @router.post(
@@ -133,7 +134,7 @@ def admin_activate_user(
             },
         ),
         http_status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
-            description="Bad Request", examples={"invalid_group": "Invalid group ID"}
+            description="Bad Request", examples={"invalid_group": "Invalid group ID."}
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=ADMIN_REQUIRED_EXAMPLES
@@ -193,7 +194,7 @@ def change_user_group(
 
     if data.group_id not in [1, 2, 3]:
         raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Invalid group ID"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Invalid group ID."
         )
 
     try:
@@ -223,7 +224,8 @@ def change_user_group(
             description="Bad Request",
             examples={
                 "invalid_date": "Invalid date format. Use YYYY-MM-DD",
-                "invalid_status": "Invalid status value. Allowed values: pending, paid, cancelled",
+                "invalid_status": "Invalid status value. "
+                "Allowed values: ['pending', 'paid', 'cancelled']",
             },
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
@@ -250,7 +252,7 @@ def get_orders(
         None, description="Filter by order date (YYYY-MM-DD)"
     ),
     status: Optional[str] = Query(None, description="Filter by order status"),
-):
+) -> AdminOrderListSchema:
     """Get list of all orders (admin only).
 
     Args:
@@ -408,7 +410,8 @@ def get_specific_user_cart(
             description="Bad Request",
             examples={
                 "invalid_date": "Invalid date format. Use YYYY-MM-DD",
-                "invalid_status": "Invalid status value. Allowed values: successful, pending, refunded",
+                "invalid_status": "Invalid status value. "
+                "Allowed values: ['successful', 'cancelled', 'refunded']",
             },
         ),
         http_status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(

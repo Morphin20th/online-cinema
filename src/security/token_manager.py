@@ -2,9 +2,8 @@ from datetime import timedelta, datetime, timezone
 from typing import Optional
 
 import jwt
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from pydantic import SecretStr
-from starlette import status
 
 from src.security.interfaces import JWTAuthInterface
 

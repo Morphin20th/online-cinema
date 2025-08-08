@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 
 import stripe
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from pydantic import AnyUrl
-from starlette import status
 
 from src.database.models.orders import OrderModel
 from src.services.stripe_interface import StripeServiceInterface
