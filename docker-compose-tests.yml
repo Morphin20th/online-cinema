@@ -42,7 +42,7 @@ services:
 
   app:
     <<: *common
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload
+    command: pytest
     ports:
       - "8001:8001"
     depends_on:
@@ -50,42 +50,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-
-#  celery:
-#    <<: *common
-#    command: celery -A src.tasks_manager.celery_app worker --loglevel=info
-#    environment:
-#      PYTHONPATH: /usr/src/app/src
-#    depends_on:
-#      migrations:
-#        condition: service_completed_successfully
-#      redis:
-#        condition: service_started
-#
-#  beat:
-#    <<: *common
-#    command: celery -A src.tasks_manager.celery_app beat --loglevel=info
-#    environment:
-#      PYTHONPATH: /usr/src/app/src
-#    depends_on:
-#      migrations:
-#        condition: service_completed_successfully
-#      redis:
-#        condition: service_started
-#
-#  mailhog:
-#    image: mailhog/mailhog
-#    ports:
-#      - "1026:1025"
-#      - "8026:8025"
-#
-#  stripe-cli:
-#    image: stripe/stripe-cli
-#    env_file:
-#      - .env.test
-#    command: ["stripe", "listen", "--forward-to", "http://app:8001/payments/webhook/"]
-#    depends_on:
-#      - app
 
 volumes:
   pgdata_test:

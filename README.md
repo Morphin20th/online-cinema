@@ -37,69 +37,32 @@ A backend service designed for a movie catalog and management platform with user
 - **Auth:** JWT, Redis blacklist
 - **Background Tasks:** Celery + Celery Beat, Redis broker
 - **Email Service:** SMTP
+- **Pytest**: Tests
+
+---
+Here's a refined **Getting Started** section that strongly recommends Docker while keeping Poetry instructions for developers who need them:
 
 ---
 
 ## Getting Started
 
-You can run the project either **locally with Poetry** or **in containers using Docker**.
+For the best experience, I **recommend using Docker** as it handles all dependencies automatically. Local setup with Poetry is provided for development purposes.
 
-- Clone the Repository
-
+### Docker Setup
 ```bash
 git clone https://github.com/Morphin20th/online-cinema.git
 cd online-cinema
+
+# 1. Configure environment
+cp config_envs/.env.sample .env  # Edit with your values
+
+# 2. Start all services (FastAPI, PostgreSQL, Redis, Celery, Mailhog, Stripe CLI)
+docker compose -f docker-compose.yml up --build
 ```
 
-- Set Up Environment Variables
-
-```bash
-cp .env.sample .env
-```
-
-### Run localy with Poetry
-
-1. Create and Activate Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-2. Install Dependencies
-
-```bash
-pip install poetry
-poetry install
-```
-
-3. Start Required Services
-
-```bash
-sudo systemctl start postgresql
-sudo systemctl start redis
-```
-
-4. Run Mailhog 
-
-Use Docker Compose to start Mailhog:
-
-```bash
-docker compose up mailhog
-```
-
-5. Apply Migrations
-
-```bash
-alembic upgrade head
-```
-
-6. Run the Server
-
-```bash
-uvicorn main:app --reload --port 8001
-```
-
+Access:
+- API: `http://localhost:8001`
+- Mailhog: `http://localhost:8025`
 
 
 ### Run with Docker
@@ -120,20 +83,27 @@ docker compose up --build
 ```
 .
 ├── alembic.ini
-├── commands
-│   └── entrypoint.sh
+├── config_envs
+├── docker
+│   └── test
+│       └── Dockerfile
+├── docker-compose-tests.yml
 ├── docker-compose.yml
 ├── Dockerfile
 ├── poetry.lock
 ├── pyproject.toml
+├── pytest.ini
 ├── README.md
 └── src
+    ├── __init__.py
+    ├── main.py
     ├── config
+    │   ├── __init__.py
+    │   ├── api.py
     │   ├── celery.py
     │   ├── config.py
     │   ├── database.py
     │   ├── email.py
-    │   ├── __init__.py
     │   ├── payment.py
     │   ├── security.py
     │   └── settings.py
@@ -143,47 +113,45 @@ docker compose up --build
     │   │   ├── env.py
     │   │   ├── script.py.mako
     │   │   └── versions
-    │   │       ├── 069b6514057e_init_models.py
-    │   │       ├── 0c4f54354f69_init_payments_models.py
-    │   │       ├── 34fd63966446_init_order_models.py
-    │   │       └── 829110659a81_init_order_models.py
+    │   │       └── 47d6f267234e_initial_tables.py
     │   ├── models
+    │   │   ├── __init__.py
     │   │   ├── accounts.py
     │   │   ├── base.py
     │   │   ├── carts.py
-    │   │   ├── __init__.py
+    │   │   ├── enums.py
     │   │   ├── movies.py
     │   │   ├── orders.py
     │   │   ├── payments.py
     │   │   └── purchases.py
-    │   ├── session.py
-    │   └── startup_data.py
+    │   └── session_postgres.py
     ├── dependencies
+    │   ├── __init__.py
     │   ├── auth.py
     │   ├── config.py
-    │   ├── group.py
-    │   └── __init__.py
-    ├── __init__.py
-    ├── main.py
+    │   └── group.py 
     ├── routes
+    │   ├── __init__.py
     │   ├── accounts.py
     │   ├── administration.py
     │   ├── carts.py
-    │   ├── __init__.py
+    │   ├── docs.py
     │   ├── movies
-    │   │   ├── genres.py
     │   │   ├── __init__.py
+    │   │   ├── genres.py
     │   │   ├── movies.py
+    │   │   ├── movie_utils.py
     │   │   └── stars.py
     │   ├── orders.py
     │   ├── payments.py
     │   └── profiles.py
     ├── schemas
+    │   ├── __init__.py
     │   ├── accounts.py
     │   ├── administration.py
     │   ├── carts.py
     │   ├── common.py
-    │   ├── __init__.py
+    │   ├── examples.py
     │   ├── _mixins.py
     │   ├── movies.py
     │   ├── orders.py
@@ -191,11 +159,14 @@ docker compose up --build
     │   └── profiles.py
     ├── security
     │   ├── __init__.py
+    │   ├── interfaces.py
     │   ├── password.py
     │   └── token_manager.py
     ├── services
-    │   ├── email_service.py
     │   ├── __init__.py
+    │   ├── email_interface.py
+    │   ├── email_service.py
+    │   ├── stripe_interface.py
     │   ├── stripe.py
     │   └── templates
     │       └── emails
@@ -209,20 +180,63 @@ docker compose up --build
     │   └── media
     │       └── avatars
     ├── tasks_manager
-    │   ├── celery_app.py
     │   ├── __init__.py
-    │   ├── tasks
-    │   │   ├── cleanup.py
+    │   ├── celery_app.py
+    │   └── tasks
+    │       ├── __init__.py
+    │       └── cleanup.py
+    ├── tests
+    │   ├── api
+    │   │   ├── __init__.py
+    │   │   ├── test_accounts.py
+    │   │   ├── test_administration.py
+    │   │   ├── test_carts.py
+    │   │   ├── test_dependencies.py
+    │   │   ├── test_docs.py
+    │   │   ├── test_genres.py
+    │   │   ├── test_movies.py
+    │   │   ├── test_orders.py
+    │   │   ├── test_pagination.py
+    │   │   ├── test_payments.py
+    │   │   ├── test_profiles.py
+    │   │   └── test_stars.py
+    │   ├── conftest.py
+    │   ├── examples
+    │   │   ├── __init__.py
+    │   │   ├── movie_examples.py
+    │   │   └── profile_examples.py
+    │   ├── __init__.py
+    │   ├── services
+    │   │   ├── __init__.py
+    │   │   ├── test_email_service.py
+    │   │   └── test_stripe_service.py
+    │   ├── stubs
+    │   │   ├── email.py
     │   │   └── __init__.py
-    │   └── temp.py
+    │   ├── tasks
+    │   │   ├── __init__.py
+    │   │   └── test_cleanup.py
+    │   └── utils
+    │       ├── factories.py
+    │       ├── fixtures
+    │       │   ├── carts.py
+    │       │   ├── clients.py
+    │       │   ├── __init__.py
+    │       │   ├── movies.py
+    │       │   ├── orders.py
+    │       │   └── payments.py
+    │       ├── __init__.py
+    │       └── utils.py
     ├── utils
     │   ├── __init__.py
+    │   ├── openapi.py
     │   ├── pagination.py
     │   └── token_generation.py
     └── validation
         ├── __init__.py
         ├── profile_validators.py
         └── security_validators.py
+
 ```
 ---
 
@@ -230,12 +244,24 @@ docker compose up --build
 - `README.MD`: Main project documentation.
 - `poetry.lock` & `pyproject.toml`: Poetry-based dependency management.
 - `docker-compose.yml`: Defines and manages multi-container Docker applications (FastAPI app, PostgreSQL, Redis, Celery, Mailhog).
+- `docker-compose-tests.yml`: Configuration for test environment containers.
 - `Dockerfile`: Builds the FastAPI application image with all dependencies and startup logic.
+- `alembic.ini`: Configuration file for Alembic database migrations.
+- `pytest.ini`: Configuration file for pytest test runner.
 
+### **Config environments (`config_env/`)**
+- `.env.prod.sample` - Sample of variables to use in production environment 
+- `.env.sample` - Sample of variables to use in development environment  
+- `.env.test.sample` - Sample of variables to use in test environment
+
+### **Dockerfiles (`docker/`)**
+- `test/`
+  - `Dockerfile` - Dockerfile for test environment
 
 ### **Source Directory (`src/`)**
 
 #### Configuration (`config/`)
+- `api.py` - Configurations for URLs 
 - `config.py` - Base configuration loader and environment setup
 - `celery.py` - Celery task queue config with Redis broker settings  
 - `database.py` - Database connection strings and ORM configurations
@@ -247,7 +273,7 @@ docker compose up --build
 Each file handles specific service configurations with environment variables.
 
 #### Database (`database/`)
-- `session.py`: Initializes the SQLAlchemy session and engine.
+- `session_postgres.py`: Initializes the SQLAlchemy PostgreSQL session and engine.
 - `models/`: SQLAlchemy ORM models for Users, Movies, Carts, etc.
 - `migrations/`: Alembic migration environment and revision files.
   - `env.py`: Alembic environment configuration.
@@ -265,6 +291,7 @@ Each file handles specific service configurations with environment variables.
 - `carts.py`: Cart-related endpoints.
 - `orders.py`: Order-related endpoints.
 - `payments.py`: Payment-related endpoints.
+- `docs.py`: Configuration for docs access.
 - `movies/`: Movie depended endpoints.
   -  `genres.py`: Genre endpoints.
   -  `movies.py`: Movie endpoints.
@@ -280,13 +307,17 @@ Each file handles specific service configurations with environment variables.
 - `carts.py`: Carts schemas.
 - `orders.py`: Order schemas.
 - `payments.py`: Payment schemas.
+- `examples.py`: Examples of HTTPExceptions for OpenAPI.
 
 #### Security (`security/`)
+- `interfaces.py`: JWTAuthManager interface.
 - `token_manager.py`: Handles JWT token creation, decoding, validation.
 - `password.py`: Password hashing and verification logic.
 
 #### Services (`services/`)
+- `email_interface.py`: EmailSender interface.
 - `email_service.py`: Sends email messages (activation, password reset, etc.).
+- `stripe_interface.py`: Stripe interface
 - `stripe.py`: Manages Stripe payment operations
 - `templates/emails/`: HTML templates for various email types.
 
@@ -306,9 +337,21 @@ Each file handles specific service configurations with environment variables.
 - `pagination.py`: Pagination link building.
 - `token_generation.py`: Secure token generation.
 
+#### Tests (`tests/`)
+- `conftest.py` - Shared pytest fixtures and configuration
+- `api/` - API endpoint tests (routes, validation, auth)
+- `examples/` - Sample data for test cases
+- `services/` - Service tests (email, payments)
+- `stubs/` - Stubs for services
+- `tasks/` - Celery task tests
+- `utils/` - Utilities for tests (helpers, factories)
+  - `utils/fixtures/` - Complex test fixtures (DB models etc.)
+
 ## API Documentation
 
 > localhost:8001/docs/
+
+Admin privileges required.
 
 ---
 

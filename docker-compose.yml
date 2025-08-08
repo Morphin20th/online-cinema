@@ -28,6 +28,19 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   migrations:
     <<: *common
     command: bash -c "alembic upgrade head"
@@ -40,8 +53,6 @@ services:
     command: uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
       - "8001:8001"
-    environment:
-      PYTHONPATH: /usr/src/app/src
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -69,19 +80,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-
-  redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6379:6379"
-
-  mailhog:
-    image: mailhog/mailhog
-    container_name: mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
 
 volumes:
   pgdata:
