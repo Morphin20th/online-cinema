@@ -1,4 +1,4 @@
-from .models import *
+from .models import *  # noqa
 from .session_postgres import get_postgres_db_contextmanager
 
 

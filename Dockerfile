@@ -19,4 +19,4 @@ RUN poetry config virtualenvs.create false
 COPY ./pyproject.toml ./poetry.lock ./alembic.ini ./
 COPY ./src ./src
 
-RUN poetry install --no-root --only main
+RUN poetry install --no-root --with dev,test

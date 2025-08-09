@@ -29,13 +29,45 @@ python-multipart = "^0.0.20"
 pillow = "^11.2.1"
 stripe = "^12.2.0"
 
-[tool.poetry.group.dev.dependencies]
-flake8 = "^7.1.1"
-black = {extras = ["d"], version = "^25.1.0"}
+[tool.poetry.group.test.dependencies]
 pytest = "^8.4.1"
 pytest-mock = "^3.14.1"
 pytest-cov = "^6.2.1"
 
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.1.1"
+black = { extras = ["d"], version = "^25.1.0" }
+mypy = "^1.17.1"
+
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.pytest.ini_options]
+testpaths = "src/tests"
+addopts = """
+    --tb=short
+    --strict-markers
+    --cov=src
+    --cov-report=term-missing
+    --color=yes
+    --maxfail=1
+"""
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
+
+
+[tool.mypy]
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+exclude = [
+    "src/database/migrations/.*",
+    "src/tests/.*",
+]
