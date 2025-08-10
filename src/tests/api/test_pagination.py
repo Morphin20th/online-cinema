@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import Request
 from fastapi.datastructures import URL
 
@@ -7,7 +9,7 @@ from src.utils import Paginator
 
 def make_fake_request(
     base_url: str = "http://testserver/movies",
-    params: dict = None,
+    params: dict[Any, Any] | None = None,
 ):
     scope = {
         "type": "http",

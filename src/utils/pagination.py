@@ -1,6 +1,7 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any, Dict
 
-from fastapi import Request, Query
+from fastapi import Request
+from sqlalchemy.orm import Query
 
 
 class Paginator:
@@ -10,7 +11,7 @@ class Paginator:
         query: Query,
         page: int = 1,
         per_page: int = 10,
-        base_params: Optional[dict] = None,
+        base_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.request = request
         self.query = query

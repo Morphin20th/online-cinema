@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Any, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -381,7 +381,7 @@ def get_movies(
         Paginated list of movies with metadata.
     """
     filters = []
-    base_params = {}
+    base_params: Dict[str, Any] = {}
 
     if year:
         filters.append(MovieModel.year == year)

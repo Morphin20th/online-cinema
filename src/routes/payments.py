@@ -115,7 +115,7 @@ def create_checkout_session(
         ),
     },
 )
-def return_success():
+def return_success() -> MessageResponseSchema:
     return MessageResponseSchema(message="Payment was successful! Thank you!")
 
 
@@ -148,7 +148,11 @@ def return_cancel() -> MessageResponseSchema:
             examples={"message": "Webhook handled"},
         ),
         status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
-            description="Bad Request", examples={**STRIPE_ERRORS_EXAMPLES}
+            description="Bad Request",
+            examples={
+                "signature_header": "Missing Stripe signature header",
+                **STRIPE_ERRORS_EXAMPLES,
+            },
         ),
         status.HTTP_404_NOT_FOUND: aggregate_error_examples(
             description="Not Found",
@@ -184,7 +188,8 @@ async def stripe_webhook(
     """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
-
+    if sig_header is None:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature header")
     event = stripe_service.parse_webhook_event(payload=payload, sig_header=sig_header)
 
     event_type = event["type"]
@@ -342,8 +347,10 @@ def get_payments(
 
     prev_page, next_page = paginator.get_links()
 
+    payments_list = [BasePaymentSchema.model_validate(payment) for payment in payments]
+
     return PaymentsListResponseSchema(
-        payments=(BasePaymentSchema.model_validate(payment) for payment in payments),
+        payments=payments_list,
         prev_page=prev_page,
         next_page=next_page,
         total_pages=paginator.total_pages,

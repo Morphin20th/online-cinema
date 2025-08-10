@@ -38,6 +38,9 @@ pytest-cov = "^6.2.1"
 flake8 = "^7.1.1"
 black = { extras = ["d"], version = "^25.1.0" }
 mypy = "^1.17.1"
+types-passlib = "^1.7.7.20250602"
+types-redis = "^4.6.0.20241004"
+celery-types = "^0.23.0"
 
 
 [build-system]
@@ -71,3 +74,7 @@ exclude = [
     "src/database/migrations/.*",
     "src/tests/.*",
 ]
+[[tool.mypy.overrides]]
+module = ["fastapi.params"]
+follow_imports = "skip"
+

@@ -1,12 +1,12 @@
 from sqlalchemy.exc import SQLAlchemyError
 
-from database import PaymentModel
 from src.database import (
     OrderModel,
     MovieModel,
     CartItemModel,
     OrderStatusEnum,
     PaymentStatusEnum,
+    PaymentModel,
 )
 
 URL_PREFIX = "orders/"

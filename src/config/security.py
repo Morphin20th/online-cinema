@@ -7,8 +7,8 @@ from src.config.config import BaseAppSettings
 
 class SecuritySettings(BaseAppSettings):
     # JWT Tokens
-    SECRET_KEY_ACCESS: SecretStr = secrets.token_urlsafe(32)
-    SECRET_KEY_REFRESH: SecretStr = secrets.token_urlsafe(32)
+    SECRET_KEY_ACCESS: SecretStr = SecretStr(secrets.token_urlsafe(32))
+    SECRET_KEY_REFRESH: SecretStr = SecretStr(secrets.token_urlsafe(32))
     ALGORITHM: str = "HS256"
 
     # Token Lifetimes (in days)

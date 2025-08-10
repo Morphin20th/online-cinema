@@ -68,7 +68,7 @@ def test_register_user_success(client, db_session):
         ("PASS1234!", PASSWORD_ERROR),
     ],
 )
-def test_register_user_password_validation(client, db_session, invalid_password, error):
+def test_register_user_password_validation(client, invalid_password, error):
     payload = make_user_payload(password=invalid_password)
     response = client.post("accounts/register", json=payload)
 
@@ -344,7 +344,7 @@ def test_refresh_token_unauthorized_expired(user_client_and_user, db_session):
     assert response.json()["detail"] == "Refresh token expired."
 
 
-def test_change_password_success(user_client_and_user, db_session):
+def test_change_password_success(user_client_and_user):
     client, user = user_client_and_user
     payload = {
         "email": user.email,
@@ -358,7 +358,7 @@ def test_change_password_success(user_client_and_user, db_session):
     assert response_data["message"] == "Password has been changed successfully!"
 
 
-def test_change_password_conflict(user_client_and_user, db_session):
+def test_change_password_conflict(user_client_and_user):
     client, user = user_client_and_user
     payload = {
         "email": user.email,
@@ -372,9 +372,7 @@ def test_change_password_conflict(user_client_and_user, db_session):
     assert response_data["detail"] == "New password cannot be same as the old one."
 
 
-def test_change_password_internal_server_error(
-    user_client_and_user, db_session, mocker
-):
+def test_change_password_internal_server_error(user_client_and_user, mocker):
     client, user = user_client_and_user
 
     payload = {
@@ -478,7 +476,7 @@ def test_successful_password_reset(client, active_user, reset_token, db_session)
     assert token is None
 
 
-def test_reset_password_invalid_email(client, active_user, reset_token):
+def test_reset_password_invalid_email(client, reset_token):
     response = client.post(
         "accounts/reset-password/complete/",
         json={

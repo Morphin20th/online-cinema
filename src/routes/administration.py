@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Request, Query, status as http_status
 from fastapi.params import Depends
@@ -162,7 +162,7 @@ def change_user_group(
     data: ChangeGroupRequest,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(admin_required),
-):
+) -> MessageResponseSchema:
     """Change user group by email (admin only).
 
     Args:
@@ -270,7 +270,7 @@ def get_orders(
     """
 
     filters = []
-    base_params = {}
+    base_params: Dict[str, Any] = {}
 
     if user_id:
         filters.append(OrderModel.user_id == user_id)
@@ -448,8 +448,8 @@ def get_all_payments(
     Returns:
         List of payments with pagination info.
     """
-    filters = []
-    base_params = {}
+    filters: list = []
+    base_params: Dict[str, Any] = {}
 
     if email:
         filters.append(UserModel.email.ilike(f"%{email}%"))

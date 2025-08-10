@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from typing import Generator
 
 from sqlalchemy import create_engine, text, Connection
 from sqlalchemy.orm import sessionmaker, Session
@@ -16,7 +17,7 @@ PostgreSQLSessionLocal = sessionmaker(
 )
 
 
-def get_postgres_db() -> Session:
+def get_postgres_db() -> Generator[Session, None, None]:
     db = PostgreSQLSessionLocal()
     try:
         yield db
@@ -25,7 +26,7 @@ def get_postgres_db() -> Session:
 
 
 @contextmanager
-def get_postgres_db_contextmanager() -> Session:
+def get_postgres_db_contextmanager() -> Generator[Session, None, None]:
     db = PostgreSQLSessionLocal()
     try:
         yield db
@@ -33,7 +34,7 @@ def get_postgres_db_contextmanager() -> Session:
         db.close()
 
 
-def load_user_groups(conn: Connection):
+def load_user_groups(conn: Connection) -> None:
     conn.execute(
         text(
             "INSERT INTO user_groups(id, name) "
@@ -43,7 +44,7 @@ def load_user_groups(conn: Connection):
     )
 
 
-def reset_postgres_database():
+def reset_postgres_database() -> None:
     with engine.connect() as connection:
         with connection.begin():
             Base.metadata.drop_all(bind=connection)

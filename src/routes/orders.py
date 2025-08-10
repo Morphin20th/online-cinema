@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -60,7 +62,8 @@ router = APIRouter()
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",
             examples={
-                "internal_server": "Error occurred while trying to create an order."
+                "internal_server": "Error occurred while trying to create an order.",
+                "order_not_found": "Order was not found after creation.",
             },
         ),
     },
@@ -137,7 +140,7 @@ def create_order(
             .filter(MovieModel.id.in_(movie_ids))
             .scalar()
         )
-        new_order.total_amount = total or 0
+        new_order.total_amount = total or Decimal(0)
 
         db.query(CartItemModel).filter(CartItemModel.cart_id == cart.id).delete()
 
@@ -158,18 +161,21 @@ def create_order(
         .filter(OrderModel.id == new_order.id)
         .first()
     )
-
+    if not order_with_items:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Order was not found after creation.",
+        )
+    movies_list = [
+        MovieSchema(uuid=item.movie.uuid, name=item.movie.name, price=item.movie.price)
+        for item in order_with_items.order_items
+    ]
     return CreateOrderResponseSchema(
         id=order_with_items.id,
         status=order_with_items.status.value,
         total_amount=order_with_items.total_amount,
         created_at=order_with_items.created_at,
-        movies=[
-            MovieSchema(
-                uuid=item.movie.uuid, name=item.movie.name, price=item.movie.price
-            )
-            for item in order_with_items.order_items
-        ],
+        movies=movies_list,
     )
 
 

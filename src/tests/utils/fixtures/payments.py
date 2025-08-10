@@ -12,7 +12,7 @@ def stripe_service(settings):
     return StripeService(
         api_key="sk_test_123",
         webhook_key="whsec_123",
-        app_url=f"{settings.APP_URL}",
+        app_url=settings.APP_URL,
     )
 
 
