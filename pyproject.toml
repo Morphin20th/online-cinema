@@ -78,3 +78,8 @@ exclude = [
 module = ["fastapi.params"]
 follow_imports = "skip"
 
+[tool.alembic]
+script_location = "src/database/migrations/"
+prepend_sys_path = ". src"
+version_path_separator = "os"
+sqlalchemy.url = "driver://user:pass@localhost/dbname"

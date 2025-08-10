@@ -6,7 +6,7 @@ x-common: &common
     - .env
   volumes:
     - ./src:/usr/src/app/src
-    - ./alembic.ini:/usr/src/app/alembic.ini
+    - ./pyproject.toml:/usr/src/app/pyproject.toml
 
 services:
   db:
