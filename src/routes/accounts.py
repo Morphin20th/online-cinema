@@ -723,7 +723,7 @@ def reset_password(
     token_record = db.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
     if not token_record:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Token not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Token not found."
         )
 
     expires_at = cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc)

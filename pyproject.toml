@@ -36,6 +36,7 @@ pytest-cov = "^6.2.1"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.1"
+flake8-pyproject = "^1.2.3"
 black = { extras = ["d"], version = "^25.1.0" }
 mypy = "^1.17.1"
 types-passlib = "^1.7.7.20250602"
@@ -83,3 +84,23 @@ script_location = "src/database/migrations/"
 prepend_sys_path = ". src"
 version_path_separator = "os"
 sqlalchemy.url = "driver://user:pass@localhost/dbname"
+
+
+[tool.flake8]
+inline-quotes = '"'
+ignore = [
+    "E203", "E266", "W503", "ANN002", "ANN003",
+    "ANN101", "ANN102", "ANN401", "N807", "N818",
+    "VNE001", "F401", "W504"
+]
+max-line-length = 119
+max-complexity = 18
+select = [
+    "B", "C", "E", "F", "W", "T4", "B9",
+    "ANN", "Q0", "N8", "VNE"
+]
+exclude = [".venv"]
+extend-exclude = [
+    "src/tests/*",
+    "src/database/migrations/*"
+]
