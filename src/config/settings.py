@@ -2,7 +2,7 @@ from pydantic_settings import SettingsConfigDict
 
 from src.config.api import APISettings
 from src.config.celery import CelerySettings
-from src.config.database import DatabaseSettings
+from src.config.database import PostgreSQLSettings
 from src.config.email import EmailSettings
 from src.config.payment import PaymentSettings
 from src.config.security import SecuritySettings
@@ -10,7 +10,7 @@ from src.config.security import SecuritySettings
 
 class Settings(
     SecuritySettings,
-    DatabaseSettings,
+    PostgreSQLSettings,
     CelerySettings,
     EmailSettings,
     PaymentSettings,
@@ -44,7 +44,6 @@ class TestingSettings(Settings):
         extra="ignore",
     )
 
-    TESTING: bool = True
     DEBUG: bool = False
     DB_NAME: str = "test_db"
     DB_HOST: str = "db"

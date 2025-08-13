@@ -28,6 +28,7 @@ redis = "^6.2.0"
 python-multipart = "^0.0.20"
 pillow = "^11.2.1"
 stripe = "^12.2.0"
+gunicorn = "^23.0.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.4.1"
@@ -42,7 +43,6 @@ mypy = "^1.17.1"
 types-passlib = "^1.7.7.20250602"
 types-redis = "^4.6.0.20241004"
 celery-types = "^0.23.0"
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
