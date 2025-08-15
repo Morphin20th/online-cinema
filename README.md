@@ -9,24 +9,59 @@ A modular, role-based REST API for managing user accounts, authentication, conte
 1. [Overview](#overview)
 2. [Features](#features)
 3. [Tech Stack](#tech-stack)
-4. [Getting Started](#getting-started)
-5. [Project Structure](#project-structure)
-6. [API Documentation](#api-documentation)
-7. [Database Models](#database-models)
+4. [Project Configuration](#project-configuration-pyprojecttoml)
+5. [Getting Started](#getting-started)
+6. [Docker Configurations](#docker-configurations)
+6. [Project Structure](#project-structure)
+7. [Tests](#tests)
+7. [API Documentation](#api-documentation)
+8. [Database Models](#database-models)
 
 ---
 
 ## Overview
 
-A backend service designed for a movie catalog and management platform with user and admin interfaces. This project supports secure user authentication, registration workflows, password management, role-based permissions, and scalable background task handling.
+Online Cinema API is a modular, role-based backend service for managing a movie catalog, user accounts, and administration tasks.  
+It provides secure user authentication, registration, email verification, and role-based access control.  
+The platform is designed for scalability with background task processing using Celery and Redis, while offering a flexible REST API built with FastAPI and SQLAlchemy.  
+Payments are integrated via Stripe, and email notifications are handled through SMTP (Mailhog for testing).  
+This setup allows both developers and admins to manage content efficiently and securely.
 
 ---
 
 ## Features
-- 🔐 JWT-based login/logout with access/refresh token flow 
-- ✅ Email-based user activation
-- 🔒 Token blacklisting on logout (via Redis)
-- ⏱ Auto-clean expired tokens using Celery Beat
+
+### Authentication & Security
+- JWT-based login/logout with access/refresh token flow
+- Email-based user activation
+- Token blacklisting on logout (via Redis)
+- Auto-clean expired tokens using Celery Beat
+
+### Users & Permissions
+- User registration and profile management
+- Admin privileges to manage users and content
+- Role-based access control for sensitive endpoints
+
+### Movies
+- CRUD operations for movies, genres and stars
+- Adding/removing movies from carts
+
+### Payments
+- Stripe integration for processing payments
+- Webhook handling for payment events
+
+### Notifications & Email
+- SMTP email sending (Mailhog for local/testing)
+- Email templates with Jinja2 for user notifications
+
+### Background Processing
+- Celery tasks for sending emails, cleaning tokens, and other async jobs
+- Celery Beat for scheduled tasks
+
+### Testing & Development
+- Pytest for automated testing
+- Linting (flake8) and type checking (MyPy)
+- Dockerized environments for development, testing, and production
 
 ---
 
@@ -36,8 +71,37 @@ A backend service designed for a movie catalog and management platform with user
 - **Database:** PostgreSQL
 - **Auth:** JWT, Redis blacklist
 - **Background Tasks:** Celery + Celery Beat, Redis broker
-- **Email Service:** SMTP
-- **Pytest**: Tests
+- **Email Service:** SMTP (MailHog for local/testing)
+- **Payments:** Stripe
+- **Testing:** Pytest
+- **Containerization:** Docker, Docker Compose (separate configs for prod, test, and dev)
+- **Infrastructure:** AWS EC2 instance for production deployment
+
+### Development & Tooling
+- **Dependency Management:** Poetry
+- **Type Checking:** MyPy
+- **Linting:** flake8
+
+
+## Project Configuration (`pyproject.toml`)
+
+The project uses **Poetry** for dependency management and configuration.  
+All Python libraries, dev tools, testing, and type-checking settings are defined here in one place:
+
+- `[tool.poetry.dependencies]` — main runtime dependencies (FastAPI, SQLAlchemy, Celery, Redis, Stripe, etc.)
+- `[tool.poetry.group.test.dependencies]` — testing libraries (pytest, pytest-mock, pytest-cov)
+- `[tool.poetry.group.dev.dependencies]` — development tools (flake8, black, mypy, type stubs)
+- `[tool.mypy]` — mypy type checking configuration
+- `[tool.flake8]` — linter configuration
+- `[tool.pytest.ini_options]` — pytest test runner options
+- `[tool.alembic]` — database migration settings
+
+This setup ensures that all environments (development, testing, production) use **consistent dependencies and tool configurations**.  
+By maintaining everything in `pyproject.toml`, developers can install dependencies with a single command:
+
+```bash
+poetry install
+```
 
 ---
 
@@ -79,15 +143,36 @@ alembic upgrade head
 uvicorn main:app --reload --port 8001
 ```
 
-### Run with Docker
+## Docker Configurations
+
+The project provides multiple Docker Compose configurations:
+
+- **Development (default)**
+```bash
+docker compose -f docker-compose.yml up --build
+````
+
+Uses `.env` (copy from `config_envs/.env.sample`) and starts all services: FastAPI, PostgreSQL, Redis, Celery, Mailhog, Stripe CLI.
+
+Access:
+* API: `http://localhost:8001`
+* Mailhog web UI: `http://localhost:8025`
+
+- **Production**
 
 ```bash
-docker compose up --build
+docker compose --env-file .env.prod -f docker-compose-prod.yml up --build
 ```
+Requires a `.env.prod` file with production environment variables. Starts only the services needed for deployment.
 
-> Mailhog web UI: http://localhost:8025
+- **Testing**
 
-> API will be running at: http://localhost:8001
+```bash
+docker compose --env-file .env.test -f docker-compose-tests.yml up --build --abort-on-container-exit --exit-code-from app
+```
+Requires a `.env.test` file. Runs the full test suite in a containerized environment.
+
+> Make sure to create the respective `.env` files before running these commands.
 
 ---
 
@@ -96,17 +181,21 @@ docker compose up --build
 --- 
 ```
 .
-├── alembic.ini
+├── commands
+│   ├── deploy.sh
+│   └── run_server_prod.sh
 ├── config_envs
 ├── docker
+│   ├── prod
+│   │   └── Dockerfile
 │   └── test
 │       └── Dockerfile
+├── docker-compose-prod.yml
 ├── docker-compose-tests.yml
 ├── docker-compose.yml
 ├── Dockerfile
 ├── poetry.lock
 ├── pyproject.toml
-├── pytest.ini
 ├── README.md
 └── src
     ├── __init__.py
@@ -143,7 +232,7 @@ docker compose up --build
     │   ├── __init__.py
     │   ├── auth.py
     │   ├── config.py
-    │   └── group.py 
+    │   └── group.py
     ├── routes
     │   ├── __init__.py
     │   ├── accounts.py
@@ -250,27 +339,32 @@ docker compose up --build
         ├── __init__.py
         ├── profile_validators.py
         └── security_validators.py
-
 ```
 ---
 
 ### **Root Directory**
 - `README.MD`: Main project documentation.
-- `poetry.lock` & `pyproject.toml`: Poetry-based dependency management.
+- `poetry.lock`: Poetry-based dependency management.
+- `pyproject.toml`: Python libraries configurations.
 - `docker-compose.yml`: Defines and manages multi-container Docker applications (FastAPI app, PostgreSQL, Redis, Celery, Mailhog).
 - `docker-compose-tests.yml`: Configuration for test environment containers.
+- `docker-compose-prod.yml`: Configuration for production environment containers. 
 - `Dockerfile`: Builds the FastAPI application image with all dependencies and startup logic.
-- `alembic.ini`: Configuration file for Alembic database migrations.
-- `pytest.ini`: Configuration file for pytest test runner.
 
 ### **Config environments (`config_env/`)**
 - `.env.prod.sample` - Sample of variables to use in production environment 
-- `.env.sample` - Sample of variables to use in development environment  
 - `.env.test.sample` - Sample of variables to use in test environment
+- `.env.sample` - Sample of variables to use in development environment  
 
 ### **Dockerfiles (`docker/`)**
+- `prod/`
+  - `Dockerfile` - Dockerfile for production environment
 - `test/`
   - `Dockerfile` - Dockerfile for test environment
+
+### **Commands (`commands/`)**
+- `deploy.sh`: Automates deployment on the production server. Pulls latest code, resets local repo to `main`, builds and starts Docker containers using the production configuration.
+- `run_server_prod.sh`: Starts the production server locally or on a remote machine using Docker Compose with the production configuration. Ensures all required services are running.
 
 ### **Source Directory (`src/`)**
 
@@ -361,9 +455,41 @@ Each file handles specific service configurations with environment variables.
 - `utils/` - Utilities for tests (helpers, factories)
   - `utils/fixtures/` - Complex test fixtures (DB models etc.)
 
+## Tests
+
+This project uses **pytest** for testing, with coverage reporting and mocks included.  
+
+### Running Tests
+
+```bash
+docker compose --env-file .env.test -f docker-compose-tests.yml up --build --abort-on-container-exit --exit-code-from app
+````
+
+### Test Configuration
+
+* Tests are located in `src/tests`.
+* Coverage is measured automatically and reported in the terminal.
+* pytest settings are defined in `[tool.pytest.ini_options]` in `pyproject.toml`.
+* Maximum failures are limited to 1 (`--maxfail=1`) for CI efficiency.
+
+## Deployment
+
+This project is deployed to an **AWS EC2 instance** using **Docker Compose** and automated via **GitHub Actions**.  
+
+### Automated Deployment
+
+- On `main` branch push or after a merged pull request, GitHub Actions runs the `deploy` job.
+- The job connects to the EC2 instance via SSH and executes `commands/deploy.sh`.
+- The script pulls the latest code, rebuilds Docker containers, and runs them using `docker-compose-prod.yml`.
+
+
 ## API Documentation
 
-> localhost:8001/docs/
+All API endpoints are automatically documented by FastAPI.
+
+- Swagger UI: `http://localhost:8001/docs/`
+- ReDoc: `http://localhost:8001/redoc/`
+- OpenAPI Scheme: `http://localhost:8001/openapi/`
 
 Admin privileges required.
 
