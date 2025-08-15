@@ -12,10 +12,11 @@ A modular, role-based REST API for managing user accounts, authentication, conte
 4. [Project Configuration](#project-configuration-pyprojecttoml)
 5. [Getting Started](#getting-started)
 6. [Docker Configurations](#docker-configurations)
-6. [Project Structure](#project-structure)
-7. [Tests](#tests)
-7. [API Documentation](#api-documentation)
-8. [Database Models](#database-models)
+7. [User Management (via API)](#user-management-via-api)
+8. [Project Structure](#project-structure)
+9. [Tests](#tests)
+10. [API Documentation](#api-documentation)
+11. [Database Models](#database-models)
 
 ---
 
@@ -176,9 +177,51 @@ Requires a `.env.test` file. Runs the full test suite in a containerized environ
 
 ---
 
-## Project Structure
+## User Management (via API)
 
---- 
+This section explains how to create and authenticate users without exposing real admin credentials. Use `localhost` for local development or replace with your server URL in production.
+
+### 1. Register a new user
+```
+
+POST /accounts/register/
+Content-Type: application/json
+
+{
+"email": "[user@example.com](mailto:user@example.com)",
+"password": "StrongPassword123!"
+}
+
+```
+- After registration, an activation email will be sent.
+- For local development, check **Mailhog** at [http://localhost:8025](http://localhost:8025) to view the email and click the activation link.
+
+### 2. Log in to obtain JWT tokens
+```
+
+POST /accounts/login/
+Content-Type: application/json
+
+{
+"email": "user@example.com",
+"password": "StrongPassword123!"
+}
+
+```
+- The response will include `access` and `refresh` tokens.
+- Use the access token in headers for authenticated requests:
+
+```
+Authorization: Bearer <access_token>
+```
+
+### Notes
+- Always activate the user via the email link before attempting to log in.
+- Tokens are used to access protected endpoints according to your role and permissions.
+
+---
+
+## Project Structure
 ```
 .
 ├── commands
@@ -455,6 +498,9 @@ Each file handles specific service configurations with environment variables.
 - `utils/` - Utilities for tests (helpers, factories)
   - `utils/fixtures/` - Complex test fixtures (DB models etc.)
 
+
+---
+
 ## Tests
 
 This project uses **pytest** for testing, with coverage reporting and mocks included.  
@@ -472,6 +518,8 @@ docker compose --env-file .env.test -f docker-compose-tests.yml up --build --abo
 * pytest settings are defined in `[tool.pytest.ini_options]` in `pyproject.toml`.
 * Maximum failures are limited to 1 (`--maxfail=1`) for CI efficiency.
 
+---
+
 ## Deployment
 
 This project is deployed to an **AWS EC2 instance** using **Docker Compose** and automated via **GitHub Actions**.  
@@ -482,6 +530,7 @@ This project is deployed to an **AWS EC2 instance** using **Docker Compose** and
 - The job connects to the EC2 instance via SSH and executes `commands/deploy.sh`.
 - The script pulls the latest code, rebuilds Docker containers, and runs them using `docker-compose-prod.yml`.
 
+---
 
 ## API Documentation
 
