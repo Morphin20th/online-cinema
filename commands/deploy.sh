@@ -8,7 +8,7 @@ handle_error() {
 }
 
 # Navigate to the application directory
-cd /home/ubuntu/src/py-fastapi-homework-5-ec2-deploy-task/ || handle_error "Failed to navigate to the application directory."
+cd /home/ubuntu/src/online-cinema/ || handle_error "Failed to navigate to the application directory."
 
 # Fetch the latest changes from the remote repository
 echo "Fetching the latest changes from the remote repository..."
