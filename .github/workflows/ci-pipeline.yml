@@ -1,0 +1,56 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Create .env.test
+        run: |
+          echo "DEBUG=false" >> .env.test
+          echo "ENVIRONMENT=test" >> .env.test
+          echo "POSTGRES_DB=test_db" >> .env.test
+          echo "POSTGRES_USER=postgres" >> .env.test
+          echo "POSTGRES_PASSWORD=postgres" >> .env.test
+          echo "DB_HOST=db" >> .env.test
+          echo "DB_PORT=5432" >> .env.test
+          echo "SECRET_KEY_ACCESS=ybuACJ4UtmgRRQlhFX9w13WEdGA5AEMaY9fdLeXJIDdqm0kqlZHaXtkV1LpYHHSM" >> .env.test
+          echo "SECRET_KEY_REFRESH=T5Ef63LqQC0PrYy5Ommoq8tBhpSeimvll2PQMwTxlEuO7eYq7gJwLkfKABYal9pH" >> .env.test
+          echo "ALGORITHM=HS256" >> .env.test
+          echo "REDIS_HOST=redis" >> .env.test
+          echo "REDIS_PORT=6379" >> .env.test
+          echo "REDIS_DB=0" >> .env.test
+      - name: Start Docker Compose
+        run: |
+          docker compose --env-file .env.test -f docker-compose-tests.yml up --build --abort-on-container-exit --exit-code-from app
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker-compose-tests.yml down
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-root --with dev
+      - name: Run flake8
+        run: |
+          poetry run flake8
+      - name: Run MyPy
+        run: |
+          poetry run mypy ./src/

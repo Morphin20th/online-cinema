@@ -17,4 +17,3 @@ class BaseAppSettings(BaseSettings):
     PROJECT_ROOT: Path = Path(__file__).parent.parent.parent.resolve()
 
     DEBUG: bool = False
-    TESTING: bool = False

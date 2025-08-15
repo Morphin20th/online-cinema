@@ -8,7 +8,7 @@ from src.tasks_manager.celery_app import celery_app
 
 
 @celery_app.task(name="src.tasks_manager.tasks.cleanup.delete_expired_tokens")
-def delete_expired_tokens():
+def delete_expired_tokens() -> None:
     db: Session = PostgreSQLSessionLocal()
     now = datetime.now(timezone.utc)
 

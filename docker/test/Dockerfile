@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y \
 RUN python -m pip install --upgrade pip && pip install poetry
 RUN poetry config virtualenvs.create false
 
-COPY ./pyproject.toml ./poetry.lock ./pytest.ini ./alembic.ini ./
+COPY ./pyproject.toml ./poetry.lock ./
 COPY ./src ./src
 
-RUN poetry install --no-root --only main,dev
+RUN poetry install --no-root --with test
 

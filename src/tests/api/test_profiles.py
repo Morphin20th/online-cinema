@@ -145,9 +145,6 @@ def test_update_profile_success_partial(user_client_and_user, db_session):
     profile = response.json()
     assert profile["first_name"] == "new", "'first_name' is expected to be updated."
     assert (
-        profile["last_name"] == "Name",
-    ), "'last_name' is not expected to be updated."
-    assert (
         profile["gender"] == GenderEnum.MAN.value
     ), "'gender' is not expected to be updated."
 

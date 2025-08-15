@@ -29,7 +29,13 @@ MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def save_avatar(file: UploadFile, user_id: int) -> str:
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file has no filename",
+        )
     extension = file.filename.split(".")[-1].lower()
+
     unique_filename = f"user_{user_id}_{uuid.uuid4().hex}.{extension}"
     file_path = MEDIA_DIR / unique_filename
 
@@ -46,6 +52,10 @@ def save_avatar(file: UploadFile, user_id: int) -> str:
     summary="User Profile Creation",
     description="Endpoint for user profile creation",
     responses={
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"no_filename": "Uploaded file has no filename"},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),
@@ -84,7 +94,7 @@ def create_profile(
     date_of_birth: date = Form(None),
     info: str = Form(None),
     db: Session = Depends(get_db),
-):
+) -> UserProfileModel:
     """Create a user profile with optional avatar and personal details.
 
     Args:
@@ -170,6 +180,10 @@ def create_profile(
     summary="User Profile Update",
     description="Endpoint for updating user profile",
     responses={
+        status.HTTP_400_BAD_REQUEST: aggregate_error_examples(
+            description="Bad Request",
+            examples={"no_filename": "Uploaded file has no filename"},
+        ),
         status.HTTP_401_UNAUTHORIZED: aggregate_error_examples(
             description="Unauthorized", examples=CURRENT_USER_EXAMPLES
         ),
@@ -204,7 +218,7 @@ def update_profile(
     date_of_birth: date = Form(None),
     info: str = Form(None),
     db: Session = Depends(get_db),
-):
+) -> UserProfileModel:
     """Update a user profile with optional avatar and personal details.
 
     Args:
@@ -253,11 +267,12 @@ def update_profile(
             profile.info = info
         if avatar:
             validate_image(avatar)
-            old_avatar_path = (
-                get_settings().PROJECT_ROOT / "src" / profile.avatar.strip("/")
-            )
-            if old_avatar_path.exists():
-                os.remove(old_avatar_path)
+            if profile.avatar:
+                old_avatar_path = (
+                    get_settings().PROJECT_ROOT / "src" / profile.avatar.strip("/")
+                )
+                if old_avatar_path.exists():
+                    os.remove(old_avatar_path)
             profile.avatar = save_avatar(avatar, user_id)
 
         db.commit()
@@ -304,7 +319,7 @@ def get_user_profile(
     user_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> UserProfileModel:
     """Get a user profile with personal details.
 
     Args:

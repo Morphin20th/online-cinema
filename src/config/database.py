@@ -3,22 +3,22 @@ from pydantic import PostgresDsn
 from src.config.config import BaseAppSettings
 
 
-class DatabaseSettings(BaseAppSettings):
-    DB_USER: str = "postgres"
-    DB_PASSWORD: str = "postgres"
+class PostgreSQLSettings(BaseAppSettings):
+    POSTGRES_DB: str = "app_db"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
     DB_HOST: str = "db"
     DB_PORT: int = 5432
-    DB_NAME: str = "app_db"
 
     @property
     def DATABASE_URL(self) -> str:
         return str(
             PostgresDsn.build(
                 scheme="postgresql+psycopg",
-                username=self.DB_USER,
-                password=self.DB_PASSWORD,
+                username=self.POSTGRES_USER,
+                password=self.POSTGRES_PASSWORD,
                 host=self.DB_HOST,
                 port=self.DB_PORT,
-                path=f"{self.DB_NAME}",
+                path=self.POSTGRES_DB,
             )
         )

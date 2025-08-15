@@ -1,29 +1,13 @@
-x-common: &common
-  build:
-    context: .
-    dockerfile: docker/test/Dockerfile
-  env_file:
-    - .env.test
-  volumes:
-    - ./src:/usr/src/app/src
-    - ./alembic.ini:/usr/src/app/alembic.ini
-
 services:
   db:
     image: postgres:latest
     restart: always
     env_file:
       - .env.test
-    environment:
-      POSTGRES_DB: test_db
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - pgdata_test:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "sh -c 'pg_isready -U \"$DB_USER\" -d test_db'" ]
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"'" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -33,23 +17,17 @@ services:
     ports:
       - "6380:6379"
 
-  migrations:
-    <<: *common
-    command: bash -c "alembic upgrade head"
-    depends_on:
-      db:
-        condition: service_healthy
-
   app:
-    <<: *common
-    command: pytest
+    build:
+      context: .
+      dockerfile: docker/test/Dockerfile
+    env_file:
+      - .env.test
+    command: bash -c "poetry run alembic upgrade head && poetry run pytest"
     ports:
       - "8001:8001"
     depends_on:
-      migrations:
-        condition: service_completed_successfully
+      db:
+        condition: service_healthy
       redis:
         condition: service_started
-
-volumes:
-  pgdata_test:

@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from pydantic import EmailStr, field_serializer, field_validator, Field
+from pydantic import EmailStr, field_serializer, field_validator, Field, BaseModel
 
 from src.validation import password_validation
 
 
-class EmailMixin:
+class EmailMixin(BaseModel):
     email: EmailStr
 
     @field_serializer("email")

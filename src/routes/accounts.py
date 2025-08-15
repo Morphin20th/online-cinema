@@ -49,7 +49,7 @@ from src.utils import generate_secure_token, aggregate_error_examples
 router = APIRouter()
 
 
-def get_user_by_email(email, db: Session) -> Optional[UserModel]:
+def get_user_by_email(email: str, db: Session) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email.ilike(f"%{email}%")).first()
 
 
@@ -60,6 +60,9 @@ def get_user_by_email(email, db: Session) -> Optional[UserModel]:
     description="Register a new user with an email an password",
     status_code=status.HTTP_201_CREATED,
     responses={
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found", examples={"not_found": "Group not found."}
+        ),
         status.HTTP_409_CONFLICT: aggregate_error_examples(
             description="Conflict",
             examples={
@@ -99,6 +102,10 @@ def create_user(
         )
 
     group = db.query(UserGroupModel).filter_by(name=UserGroupEnum.USER).first()
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Group not found."
+        )
 
     try:
         new_user = UserModel.create(
@@ -256,7 +263,7 @@ def activate_account(
     token: str = Query(...),
     email_sender: EmailSenderInterface = Depends(get_email_sender),
     db: Session = Depends(get_db),
-):
+) -> MessageResponseSchema:
     """Activate user account using email and token.
 
     Args:
@@ -677,6 +684,10 @@ def reset_password_request(
             description="Bad Request",
             examples={"invalid_token_email": "Invalid email or token."},
         ),
+        status.HTTP_404_NOT_FOUND: aggregate_error_examples(
+            description="Not Found",
+            examples={"not_found": "Token not found."},
+        ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: aggregate_error_examples(
             description="Internal Server Error",
             examples={
@@ -710,6 +721,10 @@ def reset_password(
         )
 
     token_record = db.query(PasswordResetTokenModel).filter_by(user_id=user.id).first()
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Token not found."
+        )
 
     expires_at = cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc)
 

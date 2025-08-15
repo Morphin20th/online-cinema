@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import cast
 
 import stripe
 from fastapi import HTTPException, status
@@ -29,25 +30,22 @@ class StripeService(StripeServiceInterface):
             if not item.movie:
                 continue
 
-            line_items.append(
-                {
-                    "price_data": {
-                        "currency": "usd",
-                        "product_data": {
-                            "name": item.movie.name,
-                        },
-                        "unit_amount": int(item.movie.price * 100),
-                    },
-                    "quantity": 1,
-                }
-            )
+            line_item = {
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": item.movie.name},
+                    "unit_amount": int(item.movie.price * 100),
+                },
+                "quantity": 1,
+            }
+            line_items.append(line_item)
 
         expires_at = int(
             (datetime.now() + timedelta(minutes=expires_after_minutes)).timestamp()
         )
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
-            line_items=line_items,
+            line_items=line_items,  # type: ignore
             mode="payment",
             success_url=f"{self.app_url}payments/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{self.app_url}payments/cancel",
@@ -56,7 +54,7 @@ class StripeService(StripeServiceInterface):
             customer_email=order.user.email,
             expires_at=expires_at,
         )
-        return AnyUrl(session.url)
+        return cast(AnyUrl, session.url)
 
     def parse_webhook_event(self, payload: bytes, sig_header: str) -> stripe.Event:
         try:
@@ -65,8 +63,8 @@ class StripeService(StripeServiceInterface):
                 sig_header=sig_header,
                 secret=self._webhook_key,
             )
-            return event
-        except stripe.error.SignatureVerificationError:
+            return cast(stripe.Event, event)
+        except stripe.SignatureVerificationError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Stripe webhook signature.",
@@ -81,7 +79,7 @@ class StripeService(StripeServiceInterface):
     def create_refund(payment_intent_id: str) -> stripe.Refund:
         try:
             return stripe.Refund.create(payment_intent=payment_intent_id)
-        except stripe.error.StripeError as e:
+        except stripe.StripeError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Stripe refund error: {e.user_message or str(e)}",

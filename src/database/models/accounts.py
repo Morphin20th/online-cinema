@@ -36,7 +36,7 @@ class UserGroupModel(Base):
 
     users: Mapped[List["UserModel"]] = relationship("UserModel", back_populates="group")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<UserGroupModel(id={self.id}, name={self.name})>"
 
 
@@ -91,13 +91,13 @@ class UserModel(Base):
         "PaymentModel", back_populates="user"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<UserModel(id={self.id}, email={self.email}, is_active={self.is_active})>"
         )
 
     @property
-    def password(self):
+    def password(self) -> str:
         return "Password is write-only."
 
     @password.setter
@@ -108,9 +108,7 @@ class UserModel(Base):
         return verify_password(new_password, self._hashed_password)
 
     @classmethod
-    def create(
-        cls, email: EmailStr, new_password: str, group_id: Mapped[int]
-    ) -> "UserModel":
+    def create(cls, email: EmailStr, new_password: str, group_id: int) -> "UserModel":
         user = cls(email=email, group_id=group_id)
         user.password = new_password
         return user
@@ -132,7 +130,7 @@ class UserProfileModel(Base):
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="profile")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<UserProfileModel(id={self.id}, first_name={self.first_name}, last_name={self.last_name},"
             f"gender={self.gender}, date_of_birth={self.date_of_birth})>"
@@ -165,11 +163,11 @@ class ActivationTokenModel(TokenBaseModel):
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ActivationTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
     @classmethod
-    def create(cls, user_id, token, days) -> "ActivationTokenModel":
+    def create(cls, user_id: int, token: str, days: int) -> "ActivationTokenModel":
         expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         return cls(user_id=user_id, expires_at=expires_at, token=token)
 
@@ -183,7 +181,7 @@ class PasswordResetTokenModel(TokenBaseModel):
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<PasswordResetTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
 
@@ -200,10 +198,10 @@ class RefreshTokenModel(TokenBaseModel):
 
     __table_args__ = (UniqueConstraint("user_id"),)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<RefreshTokenModel(id={self.id}, token={self.token}, expires_at={self.expires_at})>"
 
     @classmethod
-    def create(cls, user_id, token, days) -> "RefreshTokenModel":
+    def create(cls, user_id: int, token: str, days: int) -> "RefreshTokenModel":
         expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         return cls(user_id=user_id, expires_at=expires_at, token=token)

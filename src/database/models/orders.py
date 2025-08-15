@@ -47,7 +47,9 @@ class OrderModel(Base):
 
     @property
     def total(self) -> Decimal:
-        return sum(item.movie.price for item in self.order_items if item.movie)
+        return Decimal(
+            sum(item.movie.price for item in self.order_items if item.movie is not None)
+        )
 
 
 class OrderItemModel(Base):

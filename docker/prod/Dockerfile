@@ -18,5 +18,7 @@ RUN poetry config virtualenvs.create false
 
 COPY ./pyproject.toml ./poetry.lock ./
 COPY ./src ./src
+COPY ./commands/run_server_prod.sh /commands/run_server_prod.sh
+RUN chmod +x /commands/run_server_prod.sh
 
-RUN poetry install --no-root --with dev,test
+RUN poetry install --no-root --only main --no-interaction --no-ansi

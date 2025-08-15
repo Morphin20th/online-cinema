@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 from pydantic import EmailStr, AnyUrl
@@ -37,13 +38,9 @@ class EmailSender(EmailSenderInterface):
             autoescape=True,
         )
 
-    def _render(self, template_name: str, **context) -> str:
+    def _render(self, template_name: str, **context: Any) -> str:
         template = self._env.get_template(f"emails/{template_name}.html")
-        context.update(
-            {
-                "year": datetime.now().year,
-            }
-        )
+        context.update({"year": datetime.now().year})
         return template.render(**context)
 
     def _send_email(self, to_email: EmailStr, subject: str, html_body: str) -> None:
@@ -73,7 +70,7 @@ class EmailSender(EmailSenderInterface):
 
         self._send_email(to_email, subject, html)
 
-    def send_password_reset_email(self, to_email: EmailStr, token: str):
+    def send_password_reset_email(self, to_email: EmailStr, token: str) -> None:
         subject = "Password Reset Request"
         reset_api_url = f"{self._app_url}accounts/reset-password/complete/"
         html = self._render(
@@ -85,7 +82,7 @@ class EmailSender(EmailSenderInterface):
         )
         self._send_email(to_email, subject, html)
 
-    def send_activation_confirmation_email(self, to_email: EmailStr):
+    def send_activation_confirmation_email(self, to_email: EmailStr) -> None:
         subject = "Account Activated"
         html = self._render(
             "activation_confirmation",

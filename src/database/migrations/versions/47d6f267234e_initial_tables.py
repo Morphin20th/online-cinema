@@ -1,7 +1,7 @@
 """Initial tables
 
 Revision ID: 47d6f267234e
-Revises: 
+Revises:
 Create Date: 2025-07-24 18:22:51.585993
 
 """

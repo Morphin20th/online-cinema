@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime, timezone
-from typing import Optional
+from typing import Optional, cast
 
 import jwt
 from fastapi import HTTPException, status
@@ -29,7 +29,7 @@ class JWTManager(JWTAuthInterface):
 
     def __create_token(
         self, data: dict, secret_key: str, expires_delta: timedelta | None = None
-    ):
+    ) -> str:
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
@@ -57,7 +57,7 @@ class JWTManager(JWTAuthInterface):
         secret = self._secret_key_refresh if is_refresh else self._secret_key_access
         try:
             payload = jwt.decode(token, secret, algorithms=[self._algorithm])
-            return payload
+            return cast(dict, payload)
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"

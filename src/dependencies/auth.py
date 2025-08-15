@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import Request, HTTPException, status, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
@@ -38,7 +40,7 @@ def get_token(request: Request) -> str:
     Returns:
         str: The JWT access token.
     """
-    authorization: str = request.headers.get("Authorization")
+    authorization: Optional[str] = request.headers.get("Authorization")
 
     if not authorization:
         raise HTTPException(
@@ -62,7 +64,7 @@ def get_current_user(
     jwt_manager: JWTAuthInterface = Depends(get_jwt_auth_manager),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis_client),
-) -> type[UserModel]:
+) -> UserModel:
     """
     Dependency that retrieves the currently authenticated user from the token.
 

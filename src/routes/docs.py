@@ -3,6 +3,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse
 
 from src.dependencies import admin_required
 from src.config import get_settings
@@ -15,7 +16,7 @@ settings = get_settings()
 @router.get(
     settings.DOCS_URL, include_in_schema=False, dependencies=[Depends(admin_required)]
 )
-def custom_swagger_ui():
+def custom_swagger_ui() -> HTMLResponse:
     """Serve custom Swagger UI for admin users."""
     return get_swagger_ui_html(openapi_url="/openapi.json/", title="Docs")
 
@@ -23,7 +24,7 @@ def custom_swagger_ui():
 @router.get(
     settings.REDOC_URL, include_in_schema=False, dependencies=[Depends(admin_required)]
 )
-def custom_redoc_html():
+def custom_redoc_html() -> HTMLResponse:
     """Serve custom ReDoc UI for admin users."""
     return get_redoc_html(openapi_url="/openapi.json/", title="Redoc")
 
